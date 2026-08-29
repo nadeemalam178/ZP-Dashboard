@@ -514,16 +514,15 @@ function renderBifurcation(data) {
         if (!district || district === 'undefined') return;
 
         if (!districtStats.has(district)) {
-            // Find Chairman info for this district from incumbentMap or chairmanMap or candidate row
+            // Find Chairman & Vice Chairman info for this district (Vice Chairman directly from 'Final Candidate' tab)
             let chairman = String(row['ZP Chairman'] || '').trim();
-            let viceChairman = '';
+            let viceChairman = String(row['ZP Vice Chairman'] || '').trim();
+
             const inc = incumbentMap.get(seat);
-            if (inc && inc.chairman) chairman = inc.chairman;
-            if (inc && inc.viceChairman) viceChairman = inc.viceChairman;
+            if (inc && inc.chairman && !chairman) chairman = inc.chairman;
 
             const chInfo = chairmanMap.get(district);
-            if (chInfo && chInfo.chairman) chairman = chInfo.chairman;
-            if (chInfo && chInfo.viceChairman) viceChairman = chInfo.viceChairman;
+            if (chInfo && chInfo.chairman && !chairman) chairman = chInfo.chairman;
 
             districtStats.set(district, {
                 zone: zone,
@@ -769,14 +768,12 @@ function showCandidateDetail(seatNum, idx) {
     const block = row['Block'] || seatInfo['Block'] || '-';
     const badgeClass = getReservationBadgeClass(reservation);
 
-    // Leadership info
-    let chairman = String(seatInfo['ZP Chairman'] || '').trim();
-    let viceChairman = '';
-    if (inc && inc.chairman) chairman = inc.chairman;
-    if (inc && inc.viceChairman) viceChairman = inc.viceChairman;
+    // Leadership info (Vice Chairman directly from 'Final Candidate' tab)
+    let chairman = String(seatInfo['ZP Chairman'] || row['ZP Chairman'] || '').trim();
+    let viceChairman = String(seatInfo['ZP Vice Chairman'] || row['ZP Vice Chairman'] || '').trim();
+    if (inc && inc.chairman && !chairman) chairman = inc.chairman;
     const chInfo = chairmanMap.get(district);
-    if (chInfo && chInfo.chairman) chairman = chInfo.chairman;
-    if (chInfo && chInfo.viceChairman) viceChairman = chInfo.viceChairman;
+    if (chInfo && chInfo.chairman && !chairman) chairman = chInfo.chairman;
 
     // Navigation: prev/next candidate in the same seat
     const totalInSeat = candidateRows.length;
