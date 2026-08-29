@@ -81,6 +81,37 @@ bifTabs.forEach(tab => {
     });
 });
 
+// Main View Switcher
+const viewDashboardBtn = document.getElementById('viewDashboardBtn');
+const viewReportBtn = document.getElementById('viewReportBtn');
+const dashboardViewContainer = document.getElementById('dashboardViewContainer');
+const reportViewContainer = document.getElementById('reportViewContainer');
+const viewTitle = document.getElementById('viewTitle');
+const viewSubtitle = document.getElementById('viewSubtitle');
+
+if (viewDashboardBtn && viewReportBtn) {
+    viewDashboardBtn.addEventListener('click', () => switchMainView('dashboard'));
+    viewReportBtn.addEventListener('click', () => switchMainView('report'));
+}
+
+function switchMainView(view) {
+    if (view === 'dashboard') {
+        viewDashboardBtn.classList.add('active');
+        viewReportBtn.classList.remove('active');
+        dashboardViewContainer.classList.add('active-panel');
+        reportViewContainer.classList.remove('active-panel');
+        if (viewTitle) viewTitle.textContent = 'Candidate & Incumbent Overview';
+        if (viewSubtitle) viewSubtitle.textContent = 'Comprehensive analysis of ZP Seats, Probable Candidates, Sitting Incumbents & Leadership';
+    } else {
+        viewReportBtn.classList.add('active');
+        viewDashboardBtn.classList.remove('active');
+        reportViewContainer.classList.add('active-panel');
+        dashboardViewContainer.classList.remove('active-panel');
+        if (viewTitle) viewTitle.textContent = 'Executive Summary Report';
+        if (viewSubtitle) viewSubtitle.textContent = 'Numerical State & District Breakdown | Social Category & Recommendation Channel Analysis';
+    }
+}
+
 // Modal close
 modalClose.addEventListener('click', () => candidateModal.classList.remove('show'));
 candidateModal.addEventListener('click', (e) => {
@@ -613,48 +644,7 @@ function renderExecutiveReport(data) {
     `;
     reportZoneDistrictBody.innerHTML = zoneDistrictHtml;
 
-    // 3. Broad Categories Calculation & Normalization
-    const rawCatMap = new Map();
-    let totalCategorized = 0;
-    data.forEach(row => {
-        const candName = String(row['Probable ZP Candidate Name'] || '').trim();
-        if (!candName || candName === 'undefined') return;
-
-        let cat = String(row['Category'] || '').trim();
-        if (!cat || cat === 'undefined' || cat === '-') cat = 'Other / Unspecified';
-        else {
-            const lower = cat.toLowerCase();
-            if (lower.includes('gen')) cat = 'General';
-            else if (lower === 'obc' || lower.includes('backward class') || lower === 'bc') cat = 'OBC';
-            else if (lower === 'ebc' || lower.includes('extremely')) cat = 'EBC';
-            else if (lower === 'sc' || lower.includes('scheduled caste')) cat = 'SC';
-            else if (lower === 'st' || lower.includes('scheduled tribe')) cat = 'ST';
-            else if (lower.includes('minority') || lower.includes('muslim')) cat = 'Minority';
-        }
-
-        rawCatMap.set(cat, (rawCatMap.get(cat) || 0) + 1);
-        totalCategorized++;
-    });
-
-    const sortedCats = Array.from(rawCatMap.entries()).sort((a, b) => b[1] - a[1]);
-    reportCategoryBody.innerHTML = sortedCats.map(([cat, count]) => {
-        const pct = totalCategorized > 0 ? ((count / totalCategorized) * 100).toFixed(1) : 0;
-        return `
-            <tr>
-                <td><strong>${cat}</strong></td>
-                <td class="num-col font-bold">${count}</td>
-                <td class="num-col text-muted">${pct}%</td>
-            </tr>
-        `;
-    }).join('') + `
-        <tr class="report-grand-total-row">
-            <td><strong>Total</strong></td>
-            <td class="num-col"><strong>${totalCategorized}</strong></td>
-            <td class="num-col"><strong>100%</strong></td>
-        </tr>
-    `;
-
-    // 4. Primary Recommendation Sources Calculation & Grouping
+    // 3. Primary Recommendation Sources Calculation & Grouping
     const rawSourceMap = new Map();
     let totalSources = 0;
     data.forEach(row => {
@@ -678,22 +668,24 @@ function renderExecutiveReport(data) {
     });
 
     const sortedSources = Array.from(rawSourceMap.entries()).sort((a, b) => b[1] - a[1]);
-    reportSourceBody.innerHTML = sortedSources.map(([src, count]) => {
-        const pct = totalSources > 0 ? ((count / totalSources) * 100).toFixed(1) : 0;
-        return `
-            <tr>
-                <td><strong>${src}</strong></td>
-                <td class="num-col font-bold">${count}</td>
-                <td class="num-col text-muted">${pct}%</td>
+    if (reportSourceBody) {
+        reportSourceBody.innerHTML = sortedSources.map(([src, count]) => {
+            const pct = totalSources > 0 ? ((count / totalSources) * 100).toFixed(1) : 0;
+            return `
+                <tr>
+                    <td><strong>${src}</strong></td>
+                    <td class="num-col font-bold">${count}</td>
+                    <td class="num-col text-muted">${pct}%</td>
+                </tr>
+            `;
+        }).join('') + `
+            <tr class="report-grand-total-row">
+                <td><strong>Total</strong></td>
+                <td class="num-col"><strong>${totalSources}</strong></td>
+                <td class="num-col"><strong>100%</strong></td>
             </tr>
         `;
-    }).join('') + `
-        <tr class="report-grand-total-row">
-            <td><strong>Total</strong></td>
-            <td class="num-col"><strong>${totalSources}</strong></td>
-            <td class="num-col"><strong>100%</strong></td>
-        </tr>
-    `;
+    }
 }
 
 // ===========================================

@@ -115,16 +115,42 @@
         <main class="main-content">
             <header class="top-header">
                 <div class="header-titles">
-                    <h1>Candidate & Incumbent Overview</h1>
-                    <p class="header-subtitle">Comprehensive analysis of ZP Seats, Probable Candidates, Sitting Incumbents & Leadership</p>
+                    <h1 id="viewTitle">Candidate & Incumbent Overview</h1>
+                    <p class="header-subtitle" id="viewSubtitle">Comprehensive analysis of ZP Seats, Probable Candidates, Sitting Incumbents & Leadership</p>
                 </div>
+                
+                <!-- View Navigation Switcher -->
+                <div class="main-view-switcher">
+                    <button id="viewDashboardBtn" class="view-switch-btn active" data-view="dashboard">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                        Main Dashboard
+                    </button>
+                    <button id="viewReportBtn" class="view-switch-btn" data-view="report">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        Executive Report
+                    </button>
+                </div>
+
                 <div id="loadingIndicator" class="loading-indicator">
                     <div class="spinner"></div> Loading Data...
                 </div>
             </header>
 
-            <!-- KPIs (5 Cards including 2+ candidates) -->
-            <section class="kpi-section">
+            <!-- VIEW 1: MAIN DASHBOARD VIEW -->
+            <div id="dashboardViewContainer" class="view-panel active-panel">
+                <!-- KPIs (5 Cards including 2+ candidates) -->
+                <section class="kpi-section">
                 <div class="kpi-card" id="card-total-seats" title="Click to show all seats">
                     <div class="kpi-header">
                         <h3>Total ZP Seats</h3>
@@ -222,83 +248,6 @@
                 <div id="reservationChips" class="reservation-chips"></div>
             </section>
 
-            <!-- Executive Numerical Report (1-Page Print Ready for Boss) -->
-            <section id="executiveReportSection" class="executive-report-section">
-                <div class="report-header-banner">
-                    <div class="report-title-box">
-                        <h2>ZP Candidate Analytics — Executive Summary Report</h2>
-                        <p class="report-subtitle">Statewide Zone & District Distribution | Category & Source Breakdown</p>
-                    </div>
-                    <button id="printReportBtn" class="print-report-btn" onclick="window.print()" title="Print or Save as 1-Page PDF (Ctrl+P)">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                            <rect x="6" y="14" width="12" height="8"></rect>
-                        </svg>
-                        Print / Save 1-Page PDF
-                    </button>
-                </div>
-
-                <!-- Numerical KPI Summary Grid -->
-                <div class="report-kpi-bar" id="reportKpiBar"></div>
-
-                <!-- 2-Column Split: Zone & District Summary Table + Category & Source Breakdown -->
-                <div class="report-grid">
-                    <!-- Left: Zone & District Numerical Table -->
-                    <div class="report-block">
-                        <div class="report-block-title">1. Zone & District-wise Distribution</div>
-                        <div class="report-table-wrapper">
-                            <table class="report-table" id="reportZoneDistrictTable">
-                                <thead>
-                                    <tr>
-                                        <th>Zone / District</th>
-                                        <th class="num-col">Total Seats</th>
-                                        <th class="num-col">Seats (1+ Cand.)</th>
-                                        <th class="num-col">Seats (2+ Cand.)</th>
-                                        <th class="num-col">Gap (0 Cand.)</th>
-                                        <th class="num-col">Total Cand.</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="reportZoneDistrictBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Right: Broad Categories & Main Recommendation Sources -->
-                    <div class="report-block">
-                        <!-- Category Distribution -->
-                        <div class="report-block-title">2. Broad Social Category Distribution</div>
-                        <div class="report-table-wrapper mb-3">
-                            <table class="report-table" id="reportCategoryTable">
-                                <thead>
-                                    <tr>
-                                        <th>Category</th>
-                                        <th class="num-col">Candidates</th>
-                                        <th class="num-col">% Share</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="reportCategoryBody"></tbody>
-                            </table>
-                        </div>
-
-                        <!-- Top Recommendation Sources -->
-                        <div class="report-block-title">3. Primary Recommendation Sources</div>
-                        <div class="report-table-wrapper">
-                            <table class="report-table" id="reportSourceTable">
-                                <thead>
-                                    <tr>
-                                        <th>Source Channel</th>
-                                        <th class="num-col">Candidates</th>
-                                        <th class="num-col">% Share</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="reportSourceBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- Seat-wise Candidates & Incumbent Table -->
             <section class="table-section">
                 <div class="table-header-row">
@@ -327,6 +276,72 @@
                     </table>
                 </div>
             </section>
+        </div>
+        <!-- END VIEW 1: MAIN DASHBOARD VIEW -->
+
+        <!-- VIEW 2: EXECUTIVE REPORT VIEW (Separate dedicated 1-page section) -->
+        <div id="reportViewContainer" class="view-panel">
+            <section id="executiveReportSection" class="executive-report-section">
+                <div class="report-header-banner">
+                    <div class="report-title-box">
+                        <h2>ZP Candidate Analytics — Executive Summary Report</h2>
+                        <p class="report-subtitle">Statewide Zone & District Distribution | Category & Source Breakdown</p>
+                    </div>
+                    <button id="printReportBtn" class="print-report-btn" onclick="window.print()" title="Print or Save as 1-Page PDF (Ctrl+P)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                        Print / Save 1-Page PDF
+                    </button>
+                </div>
+
+                <!-- Numerical KPI Summary Grid -->
+                <div class="report-kpi-bar" id="reportKpiBar"></div>
+
+                <!-- 2-Column Split: Zone & District Summary Table + Primary Recommendation Sources -->
+                <div class="report-grid">
+                    <!-- Left: Zone & District Numerical Table -->
+                    <div class="report-block">
+                        <div class="report-block-title">1. Zone & District-wise Distribution</div>
+                        <div class="report-table-wrapper">
+                            <table class="report-table" id="reportZoneDistrictTable">
+                                <thead>
+                                    <tr>
+                                        <th>Zone / District</th>
+                                        <th class="num-col">Total Seats</th>
+                                        <th class="num-col">Seats (1+ Cand.)</th>
+                                        <th class="num-col">Seats (2+ Cand.)</th>
+                                        <th class="num-col">Gap (0 Cand.)</th>
+                                        <th class="num-col">Total Cand.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportZoneDistrictBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right: Primary Recommendation Sources -->
+                    <div class="report-block">
+                        <div class="report-block-title">2. Primary Recommendation Sources</div>
+                        <div class="report-table-wrapper">
+                            <table class="report-table" id="reportSourceTable">
+                                <thead>
+                                    <tr>
+                                        <th>Source Channel</th>
+                                        <th class="num-col">Candidates</th>
+                                        <th class="num-col">% Share</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportSourceBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <!-- END VIEW 2: EXECUTIVE REPORT VIEW -->
         </main>
     </div>
 
