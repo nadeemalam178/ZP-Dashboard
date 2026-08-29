@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ZP Candidate Dashboard</title>
-    <meta name="description" content="Zila Parishad Candidate Dashboard — zone-wise & district-wise bifurcation, search by seat number, candidate count metrics, and interactive candidate details.">
+    <title>ZP Candidate & Incumbent Dashboard</title>
+    <meta name="description" content="Zila Parishad Candidate & Incumbent Dashboard — zone & district bifurcation, search by seat, incumbent ZP integration, ZP Chairman data, and candidate profiles.">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -38,6 +38,16 @@
                         <option value="multi">2+ Candidates (Multi)</option>
                         <option value="single">1 Candidate (Single)</option>
                         <option value="gap">0 Candidates (Gap)</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="incumbentFilter">Incumbent Status</label>
+                    <select id="incumbentFilter">
+                        <option value="All">All Incumbents</option>
+                        <option value="inFinalList">⭐ In Final Candidate List</option>
+                        <option value="jsp">JSP Leaning / Ready to Meet</option>
+                        <option value="otherParty">Other Parties (BJP/RJD/JDU)</option>
                     </select>
                 </div>
 
@@ -96,8 +106,8 @@
         <main class="main-content">
             <header class="top-header">
                 <div class="header-titles">
-                    <h1>Candidate Overview</h1>
-                    <p class="header-subtitle">Comprehensive Zila Parishad seat & candidate analysis</p>
+                    <h1>Candidate & Incumbent Overview</h1>
+                    <p class="header-subtitle">Comprehensive analysis of ZP Seats, Probable Candidates, Sitting Incumbents & Leadership</p>
                 </div>
                 <div id="loadingIndicator" class="loading-indicator">
                     <div class="spinner"></div> Loading Data...
@@ -184,6 +194,7 @@
                                 <th>District</th>
                                 <th>Zone</th>
                                 <th>ZP Chairman</th>
+                                <th>Vice Chairman</th>
                                 <th>Total Seats</th>
                                 <th>Seats with Candidates</th>
                                 <th>Seats (2+ Cand.)</th>
@@ -202,11 +213,11 @@
                 <div id="reservationChips" class="reservation-chips"></div>
             </section>
 
-            <!-- Seat-wise Candidates (Spacious, prominent section with numbered candidate tags) -->
+            <!-- Seat-wise Candidates & Incumbent Table -->
             <section class="table-section">
                 <div class="table-header-row">
                     <div class="table-title-area">
-                        <h2>Seat-wise Candidate List</h2>
+                        <h2>Seat-wise Candidate & Incumbent Directory</h2>
                         <span id="activeFilterBadge" class="active-filter-badge" style="display: none;"></span>
                     </div>
                     <span id="resultCount" class="result-count"></span>
@@ -215,12 +226,13 @@
                     <table id="candidateTable">
                         <thead>
                             <tr>
-                                <th style="width: 140px;">ZP Seat</th>
-                                <th style="width: 170px;">Reservation</th>
-                                <th style="width: 150px;">District</th>
-                                <th style="width: 150px;">Block</th>
+                                <th style="width: 130px;">ZP Seat</th>
+                                <th style="width: 150px;">Reservation</th>
+                                <th style="width: 140px;">District</th>
+                                <th style="width: 130px;">Block</th>
+                                <th style="width: 200px;">Sitting Incumbent ZP</th>
                                 <th style="width: 110px;">Candidates</th>
-                                <th>Probable Candidates <span class="table-header-hint">(Click any name to open full detail)</span></th>
+                                <th>Probable Candidates <span class="table-header-hint">(Click name for full profile)</span></th>
                             </tr>
                         </thead>
                         <tbody id="candidateTableBody">

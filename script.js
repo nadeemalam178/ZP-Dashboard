@@ -1,11 +1,14 @@
 const url = 'https://docs.google.com/spreadsheets/d/1ZtME2kaltetF-VNuuH4NATAHx6qSsxFkbZ5fSPSG-CM/export?format=xlsx';
 
 let candidatesData = [];
+let incumbentMap = new Map(); // seat -> incumbent object
+let chairmanMap = new Map();  // district -> chairman object
 let pkData = [];
 let allSeatNumbers = [];
 
 // DOM Elements
 const candidateStatusFilter = document.getElementById('candidateStatusFilter');
+const incumbentFilter = document.getElementById('incumbentFilter');
 const zoneFilter = document.getElementById('zoneFilter');
 const districtFilter = document.getElementById('districtFilter');
 const pcFilter = document.getElementById('pcFilter');
@@ -89,6 +92,7 @@ document.addEventListener('keydown', (e) => {
 
 // Event Listeners for Filters
 candidateStatusFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateActiveKPICard(); renderDashboard(); });
+incumbentFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; renderDashboard(); });
 zoneFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateFilters('zone'); renderDashboard(); });
 districtFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateFilters('district'); renderDashboard(); });
 pcFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateFilters('pc'); renderDashboard(); });
@@ -201,6 +205,7 @@ function selectSeat(seat) {
     searchMode = true;
     searchedSeat = seat;
     candidateStatusFilter.value = 'All';
+    incumbentFilter.value = 'All';
     zoneFilter.value = 'All';
     districtFilter.value = 'All';
     pcFilter.value = 'All';
@@ -218,11 +223,70 @@ async function loadData() {
         const arrayBuffer = await response.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
+        // 1. Final Candidate Sheet
         const finalCandidateSheet = workbook.Sheets['Final Candidate'];
         candidatesData = XLSX.utils.sheet_to_json(finalCandidateSheet, { defval: '' });
 
+        // 2. Incumbent ZP Sheet
+        incumbentMap.clear();
+        const incumbentSheet = workbook.Sheets['Incumbent ZP'];
+        if (incumbentSheet) {
+            const incumbentRows = XLSX.utils.sheet_to_json(incumbentSheet, { defval: '' });
+            incumbentRows.forEach(row => {
+                const seat = String(row['ZP Seat Number'] || '').trim();
+                if (seat && seat !== 'undefined') {
+                    incumbentMap.set(seat, {
+                        district: String(row['District'] || '').trim(),
+                        pc: String(row['PC'] || '').trim(),
+                        ac: String(row['AC'] || '').trim(),
+                        block: String(row['Block'] || '').trim(),
+                        panchayat: String(row['Panchayat'] || '').trim(),
+                        seatNumber: seat,
+                        chairman: String(row['ZP Chairman'] || '').trim(),
+                        viceChairman: String(row['ZP Vice Chairman'] || '').trim(),
+                        incumbentName: String(row['Incumbent ZP Name'] || '').trim(),
+                        inFinalList: String(row['In Final Candidates List'] || '').trim(),
+                        incumbentNumber: String(row['Incumbent ZP Number'] || '').trim(),
+                        currentReservation: String(row['Current Seat Reservation'] || '').trim(),
+                        probableReservation: String(row['Probable Seat Reservation'] || '').trim(),
+                        party: String(row['Party Inclination'] || '').trim(),
+                        callingStatus: String(row['Calling Status'] || '').trim(),
+                        meetingStatus: String(row['PK Meeting Status'] || '').trim(),
+                        wantContestJSP: String(row['Want contest with JSP'] || '').trim(),
+                        onboardingStatus: String(row['Onboarding Status '] || row['Onboarding Status'] || '').trim(),
+                        meetingDate: String(row['Meeting Date'] || '').trim(),
+                        remarks: String(row['Remarks'] || '').trim(),
+                        runnerupName: String(row['Runnerup ZP Name'] || '').trim(),
+                        runnerupNumber: String(row['Runnerup ZP Number'] || '').trim()
+                    });
+                }
+            });
+        }
+
+        // 3. ZP Chairman Sheet
+        chairmanMap.clear();
+        const chairmanSheet = workbook.Sheets['ZP Chairman'];
+        if (chairmanSheet) {
+            const chairmanRows = XLSX.utils.sheet_to_json(chairmanSheet, { defval: '' });
+            chairmanRows.forEach(row => {
+                const dist = String(row['District'] || row['District Name'] || '').trim();
+                if (dist && dist !== 'undefined') {
+                    chairmanMap.set(dist, {
+                        district: dist,
+                        chairman: String(row['District ZP Chairman'] || row['Chairman Name'] || row['Incumbent Chairman'] || '').trim(),
+                        party: String(row['Party'] || row['Party Inclination'] || '').trim(),
+                        viceChairman: String(row['Vice Chairman'] || row['ZP Vice Chairman'] || '').trim(),
+                        profile: String(row['Profile'] || '').trim()
+                    });
+                }
+            });
+        }
+
+        // 4. PK Review Report Sheet
         const pkSheet = workbook.Sheets['PK Review Report'];
-        pkData = XLSX.utils.sheet_to_json(pkSheet, { range: 1, defval: '' });
+        if (pkSheet) {
+            pkData = XLSX.utils.sheet_to_json(pkSheet, { range: 1, defval: '' });
+        }
 
         allSeatNumbers = getUniqueValues(candidatesData, 'ZP Seat Number');
 
@@ -306,6 +370,29 @@ function getFilteredCandidates(applyStatusFilter = true) {
     if (blockFilter.value !== 'All') filtered = filtered.filter(row => String(row.Block).trim() === blockFilter.value);
     if (reservationFilter.value !== 'All') filtered = filtered.filter(row => String(row['Seat Reservation Status']).trim() === reservationFilter.value);
 
+    // Apply Incumbent Status filter if requested
+    if (incumbentFilter.value !== 'All') {
+        const incVal = incumbentFilter.value;
+        filtered = filtered.filter(row => {
+            const seat = String(row['ZP Seat Number']).trim();
+            const inc = incumbentMap.get(seat);
+            if (!inc) return false;
+            if (incVal === 'inFinalList') {
+                return inc.inFinalList && inc.inFinalList.toLowerCase() !== 'no';
+            }
+            if (incVal === 'jsp') {
+                const party = (inc.party || '').toLowerCase();
+                const meet = (inc.meetingStatus || '').toLowerCase();
+                return party.includes('jsp') || meet.includes('ready') || meet.includes('onboard');
+            }
+            if (incVal === 'otherParty') {
+                const party = (inc.party || '').toUpperCase();
+                return party.includes('BJP') || party.includes('RJD') || party.includes('JDU') || party.includes('JD(U)') || party.includes('INC');
+            }
+            return true;
+        });
+    }
+
     // Apply Candidate Status filter (multi / single / gap) only if requested
     if (applyStatusFilter && candidateStatusFilter.value !== 'All') {
         const status = candidateStatusFilter.value;
@@ -335,9 +422,7 @@ function getFilteredCandidates(applyStatusFilter = true) {
 }
 
 function renderDashboard() {
-    // Geographical & reservation filtered (without candidate status filter) for top-level KPIs & Bifurcation
     const geoFiltered = getFilteredCandidates(false);
-    // Fully filtered for the candidate table
     const tableFiltered = getFilteredCandidates(true);
 
     renderKPIs(geoFiltered);
@@ -350,8 +435,6 @@ function renderDashboard() {
 // BIFURCATION: Zone-wise & District-wise
 // ===========================================
 function renderBifurcation(data) {
-    // --- Zone-wise ---
-    const zoneStats = new Map();
     // Pre-calculate candidate counts per seat
     const seatCandidateCount = new Map();
     data.forEach(row => {
@@ -364,6 +447,8 @@ function renderBifurcation(data) {
         }
     });
 
+    // --- Zone-wise ---
+    const zoneStats = new Map();
     data.forEach(row => {
         const zone = String(row.Zone || '').trim();
         const seat = String(row['ZP Seat Number'] || '').trim();
@@ -409,7 +494,6 @@ function renderBifurcation(data) {
             <td><span class="gap-badge ${gap > 0 ? 'has-gap' : 'no-gap'}">${gap}</span></td>
             <td><strong>${z.totalCandidates}</strong></td>
         `;
-        // Click on zone row to filter by that zone
         tr.addEventListener('click', () => {
             zoneFilter.value = zone;
             searchMode = false;
@@ -426,14 +510,25 @@ function renderBifurcation(data) {
         const district = String(row.District || '').trim();
         const zone = String(row.Zone || '').trim();
         const seat = String(row['ZP Seat Number'] || '').trim();
-        const chairman = String(row['ZP Chairman'] || '').trim();
         const candidateName = String(row['Probable ZP Candidate Name'] || '').trim();
         if (!district || district === 'undefined') return;
 
         if (!districtStats.has(district)) {
+            // Find Chairman info for this district from incumbentMap or chairmanMap or candidate row
+            let chairman = String(row['ZP Chairman'] || '').trim();
+            let viceChairman = '';
+            const inc = incumbentMap.get(seat);
+            if (inc && inc.chairman) chairman = inc.chairman;
+            if (inc && inc.viceChairman) viceChairman = inc.viceChairman;
+
+            const chInfo = chairmanMap.get(district);
+            if (chInfo && chInfo.chairman) chairman = chInfo.chairman;
+            if (chInfo && chInfo.viceChairman) viceChairman = chInfo.viceChairman;
+
             districtStats.set(district, {
                 zone: zone,
-                chairman: '',
+                chairman: chairman,
+                viceChairman: viceChairman,
                 seats: new Set(),
                 seatsWithCandidate: new Set(),
                 seatsWith2Plus: new Set(),
@@ -441,7 +536,6 @@ function renderBifurcation(data) {
             });
         }
         const d = districtStats.get(district);
-        if (chairman && chairman !== 'undefined') d.chairman = chairman;
         if (seat && seat !== 'undefined') {
             d.seats.add(seat);
             const count = seatCandidateCount.get(seat) || 0;
@@ -463,14 +557,14 @@ function renderBifurcation(data) {
         tr.innerHTML = `
             <td><strong>${district}</strong></td>
             <td>${d.zone}</td>
-            <td>${d.chairman ? `<span class="chairman-badge-sm">${d.chairman}</span>` : '-'}</td>
+            <td>${d.chairman ? `<span class="chairman-badge-sm">👑 ${d.chairman}</span>` : '-'}</td>
+            <td>${d.viceChairman ? `<span class="vice-chairman-badge-sm">${d.viceChairman}</span>` : '-'}</td>
             <td><strong>${d.seats.size}</strong></td>
             <td><span class="count-badge count-identified">${d.seatsWithCandidate.size}</span></td>
             <td><span class="count-badge count-multi-pill">${d.seatsWith2Plus.size}</span></td>
             <td><span class="gap-badge ${gap > 0 ? 'has-gap' : 'no-gap'}">${gap}</span></td>
             <td><strong>${d.totalCandidates}</strong></td>
         `;
-        // Click on district row to filter by that district
         tr.addEventListener('click', () => {
             if (d.zone && d.zone !== 'undefined') {
                 zoneFilter.value = d.zone;
@@ -486,6 +580,19 @@ function renderBifurcation(data) {
     });
 }
 
+// Helper to format party badge class
+function getPartyBadgeClass(party) {
+    const p = String(party || '').trim().toUpperCase();
+    if (p.includes('JSP')) return 'party-jsp';
+    if (p.includes('BJP')) return 'party-bjp';
+    if (p.includes('RJD')) return 'party-rjd';
+    if (p.includes('JDU') || p.includes('JD(U)')) return 'party-jdu';
+    if (p.includes('INC') || p.includes('CONGRESS')) return 'party-inc';
+    if (p.includes('AIMIM')) return 'party-aimim';
+    if (p.includes('LJP')) return 'party-ljp';
+    return 'party-default';
+}
+
 // ===========================================
 // SEAT TABLE: Compact, names only, click to expand
 // ===========================================
@@ -494,20 +601,34 @@ function renderSeatTable(data) {
 
     // Active status filter indicator
     const currentStatus = candidateStatusFilter.value;
+    const currentInc = incumbentFilter.value;
+    let badgeText = '';
     if (currentStatus !== 'All') {
         const labels = {
-            'multi': 'Showing Seats with 2+ Candidates',
-            'single': 'Showing Seats with 1 Candidate',
-            'gap': 'Showing Gap Seats (0 Candidates)'
+            'multi': 'Seats with 2+ Candidates',
+            'single': 'Seats with 1 Candidate',
+            'gap': 'Gap Seats (0 Candidates)'
         };
-        activeFilterBadge.textContent = labels[currentStatus] || '';
+        badgeText = labels[currentStatus] || '';
+    }
+    if (currentInc !== 'All') {
+        const incLabels = {
+            'inFinalList': 'Incumbent in Final List',
+            'jsp': 'JSP Leaning Incumbents',
+            'otherParty': 'Other Party Incumbents'
+        };
+        badgeText += (badgeText ? ' + ' : '') + (incLabels[currentInc] || '');
+    }
+
+    if (badgeText) {
+        activeFilterBadge.textContent = 'Filtered: ' + badgeText;
         activeFilterBadge.style.display = 'inline-block';
     } else {
         activeFilterBadge.style.display = 'none';
     }
 
     if (data.length === 0) {
-        candidateTableBody.innerHTML = '<tr><td colspan="6" class="no-results-cell">No matching ZP seats or candidates found for selected filters</td></tr>';
+        candidateTableBody.innerHTML = '<tr><td colspan="7" class="no-results-cell">No matching ZP seats or candidates found for selected filters</td></tr>';
         resultCount.textContent = '0 seats';
         return;
     }
@@ -529,7 +650,7 @@ function renderSeatTable(data) {
 
     sortedSeats.forEach(seat => {
         const rowsForSeat = seatsMap.get(seat);
-        const seatInfo = rowsForSeat[0]; // Use first row for seat metadata
+        const seatInfo = rowsForSeat[0];
         const candidateRows = rowsForSeat.filter(row => String(row['Probable ZP Candidate Name']).trim());
         const candCount = candidateRows.length;
 
@@ -537,6 +658,24 @@ function renderSeatTable(data) {
         const badgeClass = getReservationBadgeClass(reservationStatus);
         const district = String(seatInfo.District || '').trim();
         const block = String(seatInfo.Block || '').trim();
+
+        // Get Incumbent Data
+        const inc = incumbentMap.get(seat);
+        let incumbentDisplay = '<span class="incumbent-none">-</span>';
+        if (inc && inc.incumbentName) {
+            const partyClass = getPartyBadgeClass(inc.party);
+            const isShortlisted = inc.inFinalList && inc.inFinalList.toLowerCase() !== 'no';
+            incumbentDisplay = `
+                <div class="incumbent-cell-content" title="Sitting Incumbent (2021)">
+                    <div class="inc-name-row">
+                        <span class="inc-name">${inc.incumbentName}</span>
+                        ${inc.party ? `<span class="party-badge ${partyClass}">${inc.party}</span>` : ''}
+                        ${isShortlisted ? `<span class="shortlisted-pill" title="Shortlisted in JSP Final Candidate List">⭐ Shortlisted</span>` : ''}
+                    </div>
+                    ${inc.meetingStatus && inc.meetingStatus !== 'NA' ? `<span class="inc-status-tag status-${inc.meetingStatus.toLowerCase().replace(/\s+/g, '-')}">${inc.meetingStatus}</span>` : ''}
+                </div>
+            `;
+        }
 
         // Build candidate count pill
         let countPill = '';
@@ -576,6 +715,7 @@ function renderSeatTable(data) {
             <td>${reservationStatus ? `<span class="reservation-badge ${badgeClass}">${reservationStatus}</span>` : '-'}</td>
             <td>${district || '-'}</td>
             <td>${block || '-'}</td>
+            <td class="incumbent-td">${incumbentDisplay}</td>
             <td>${countPill}</td>
             <td class="candidates-cell">${candidateTags}</td>
         `;
@@ -605,10 +745,11 @@ function showCandidateDetail(seatNum, idx) {
     );
     const candidateRows = rowsForSeat.filter(row => String(row['Probable ZP Candidate Name']).trim());
 
-    if (idx >= candidateRows.length) return;
+    if (idx >= candidateRows.length && candidateRows.length > 0) return;
 
-    const row = candidateRows[idx];
-    const seatInfo = rowsForSeat[0];
+    const row = candidateRows[idx] || {};
+    const seatInfo = rowsForSeat[0] || {};
+    const inc = incumbentMap.get(seatNum);
 
     const name = row['Probable ZP Candidate Name'] || '-';
     const contact = row['Contact No'] || '-';
@@ -621,13 +762,21 @@ function showCandidateDetail(seatNum, idx) {
     const remarks = row['Remarks'] || '-';
     const pkFeedback = row['PK Feedback'] || '-';
     const reservation = String(seatInfo['Seat Reservation Status'] || '').trim();
-    const chairman = String(seatInfo['ZP Chairman'] || '').trim();
-    const zone = row['Zone'] || '-';
-    const district = row['District'] || '-';
-    const pc = row['PC'] || '-';
-    const ac = row['AC'] || '-';
-    const block = row['Block'] || '-';
+    const zone = row['Zone'] || seatInfo['Zone'] || '-';
+    const district = row['District'] || seatInfo['District'] || '-';
+    const pc = row['PC'] || seatInfo['PC'] || '-';
+    const ac = row['AC'] || seatInfo['AC'] || '-';
+    const block = row['Block'] || seatInfo['Block'] || '-';
     const badgeClass = getReservationBadgeClass(reservation);
+
+    // Leadership info
+    let chairman = String(seatInfo['ZP Chairman'] || '').trim();
+    let viceChairman = '';
+    if (inc && inc.chairman) chairman = inc.chairman;
+    if (inc && inc.viceChairman) viceChairman = inc.viceChairman;
+    const chInfo = chairmanMap.get(district);
+    if (chInfo && chInfo.chairman) chairman = chInfo.chairman;
+    if (chInfo && chInfo.viceChairman) viceChairman = chInfo.viceChairman;
 
     // Navigation: prev/next candidate in the same seat
     const totalInSeat = candidateRows.length;
@@ -656,6 +805,8 @@ function showCandidateDetail(seatNum, idx) {
         </div>
         ` : ''}
 
+        <!-- Candidate Details Grid -->
+        <div class="modal-section-title">Probable Candidate Information</div>
         <div class="modal-details-grid">
             <div class="detail-item">
                 <span class="detail-label">Contact Number</span>
@@ -683,6 +834,7 @@ function showCandidateDetail(seatNum, idx) {
             </div>
         </div>
 
+        <!-- Location Breadcrumb -->
         <div class="modal-location-bar">
             <span class="loc-item"><span class="loc-label">Zone:</span> ${zone}</span>
             <span class="loc-divider">›</span>
@@ -695,15 +847,88 @@ function showCandidateDetail(seatNum, idx) {
             <span class="loc-item"><span class="loc-label">Block:</span> ${block}</span>
         </div>
 
-        ${chairman && chairman !== 'undefined' ? `
-        <div class="modal-chairman">
-            <span class="detail-label">District ZP Chairman</span>
-            <span class="chairman-badge-sm">👑 ${chairman}</span>
+        <!-- Sitting Incumbent ZP Card -->
+        ${inc && inc.incumbentName ? `
+        <div class="modal-incumbent-card">
+            <div class="modal-incumbent-header">
+                <div class="inc-title-badge">👑 Sitting Incumbent ZP (2021)</div>
+                ${inc.party ? `<span class="party-badge ${getPartyBadgeClass(inc.party)}">${inc.party}</span>` : ''}
+                ${inc.inFinalList && inc.inFinalList.toLowerCase() !== 'no' ? `<span class="shortlisted-pill">⭐ Shortlisted in Final Candidates</span>` : ''}
+            </div>
+            <div class="modal-incumbent-body">
+                <div class="inc-detail-row">
+                    <span class="inc-label">Incumbent Name:</span>
+                    <strong class="inc-val">${inc.incumbentName}</strong>
+                </div>
+                ${inc.incumbentNumber ? `
+                <div class="inc-detail-row">
+                    <span class="inc-label">Contact:</span>
+                    <span class="inc-val">${inc.incumbentNumber}</span>
+                </div>` : ''}
+                ${inc.callingStatus ? `
+                <div class="inc-detail-row">
+                    <span class="inc-label">Calling Status:</span>
+                    <span class="inc-status-tag status-${inc.callingStatus.toLowerCase().replace(/\s+/g, '-')}">${inc.callingStatus}</span>
+                </div>` : ''}
+                ${inc.meetingStatus ? `
+                <div class="inc-detail-row">
+                    <span class="inc-label">PK Meeting Status:</span>
+                    <span class="inc-status-tag status-${inc.meetingStatus.toLowerCase().replace(/\s+/g, '-')}">${inc.meetingStatus}</span>
+                </div>` : ''}
+                ${inc.wantContestJSP ? `
+                <div class="inc-detail-row">
+                    <span class="inc-label">Want Contest with JSP:</span>
+                    <span class="inc-val font-semibold">${inc.wantContestJSP}</span>
+                </div>` : ''}
+                ${inc.onboardingStatus ? `
+                <div class="inc-detail-row">
+                    <span class="inc-label">Onboarding Status:</span>
+                    <span class="inc-val">${inc.onboardingStatus}</span>
+                </div>` : ''}
+                ${inc.currentReservation ? `
+                <div class="inc-detail-row">
+                    <span class="inc-label">Reservation (Current / Probable):</span>
+                    <span class="inc-val">${inc.currentReservation} ${inc.probableReservation ? `➔ ${inc.probableReservation}` : ''}</span>
+                </div>` : ''}
+                ${inc.runnerupName ? `
+                <div class="inc-detail-row runnerup-row">
+                    <span class="inc-label">🥈 Runner-up ZP:</span>
+                    <span class="inc-val">${inc.runnerupName} ${inc.runnerupNumber ? `(${inc.runnerupNumber})` : ''}</span>
+                </div>` : ''}
+                ${inc.remarks ? `
+                <div class="inc-detail-row remarks-sub">
+                    <span class="inc-label">Incumbent Remarks:</span>
+                    <span class="inc-val">${inc.remarks}</span>
+                </div>` : ''}
+            </div>
         </div>
         ` : ''}
 
+        <!-- District Leadership Card -->
+        ${(chairman || viceChairman) ? `
+        <div class="modal-leadership-bar">
+            ${chairman ? `
+            <div class="lead-item">
+                <span class="lead-icon">🏛️</span>
+                <div>
+                    <span class="lead-label">District ZP Chairman</span>
+                    <span class="lead-name">👑 ${chairman}</span>
+                </div>
+            </div>` : ''}
+            ${viceChairman ? `
+            <div class="lead-item">
+                <span class="lead-icon">🎖️</span>
+                <div>
+                    <span class="lead-label">ZP Vice Chairman</span>
+                    <span class="lead-name">${viceChairman}</span>
+                </div>
+            </div>` : ''}
+        </div>
+        ` : ''}
+
+        <!-- Profile Section -->
         <div class="modal-profile-section">
-            <span class="detail-label">Brief Profile</span>
+            <span class="detail-label">Candidate Brief Profile</span>
             <div class="modal-profile-text">${profile}</div>
         </div>
 
