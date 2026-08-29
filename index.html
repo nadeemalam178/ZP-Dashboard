@@ -222,6 +222,83 @@
                 <div id="reservationChips" class="reservation-chips"></div>
             </section>
 
+            <!-- Executive Numerical Report (1-Page Print Ready for Boss) -->
+            <section id="executiveReportSection" class="executive-report-section">
+                <div class="report-header-banner">
+                    <div class="report-title-box">
+                        <h2>ZP Candidate Analytics — Executive Summary Report</h2>
+                        <p class="report-subtitle">Statewide Zone & District Distribution | Category & Source Breakdown</p>
+                    </div>
+                    <button id="printReportBtn" class="print-report-btn" onclick="window.print()" title="Print or Save as 1-Page PDF (Ctrl+P)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                        Print / Save 1-Page PDF
+                    </button>
+                </div>
+
+                <!-- Numerical KPI Summary Grid -->
+                <div class="report-kpi-bar" id="reportKpiBar"></div>
+
+                <!-- 2-Column Split: Zone & District Summary Table + Category & Source Breakdown -->
+                <div class="report-grid">
+                    <!-- Left: Zone & District Numerical Table -->
+                    <div class="report-block">
+                        <div class="report-block-title">1. Zone & District-wise Distribution</div>
+                        <div class="report-table-wrapper">
+                            <table class="report-table" id="reportZoneDistrictTable">
+                                <thead>
+                                    <tr>
+                                        <th>Zone / District</th>
+                                        <th class="num-col">Total Seats</th>
+                                        <th class="num-col">Seats (1+ Cand.)</th>
+                                        <th class="num-col">Seats (2+ Cand.)</th>
+                                        <th class="num-col">Gap (0 Cand.)</th>
+                                        <th class="num-col">Total Cand.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportZoneDistrictBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right: Broad Categories & Main Recommendation Sources -->
+                    <div class="report-block">
+                        <!-- Category Distribution -->
+                        <div class="report-block-title">2. Broad Social Category Distribution</div>
+                        <div class="report-table-wrapper mb-3">
+                            <table class="report-table" id="reportCategoryTable">
+                                <thead>
+                                    <tr>
+                                        <th>Category</th>
+                                        <th class="num-col">Candidates</th>
+                                        <th class="num-col">% Share</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportCategoryBody"></tbody>
+                            </table>
+                        </div>
+
+                        <!-- Top Recommendation Sources -->
+                        <div class="report-block-title">3. Primary Recommendation Sources</div>
+                        <div class="report-table-wrapper">
+                            <table class="report-table" id="reportSourceTable">
+                                <thead>
+                                    <tr>
+                                        <th>Source Channel</th>
+                                        <th class="num-col">Candidates</th>
+                                        <th class="num-col">% Share</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportSourceBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Seat-wise Candidates & Incumbent Table -->
             <section class="table-section">
                 <div class="table-header-row">

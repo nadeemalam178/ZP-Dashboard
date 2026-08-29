@@ -453,8 +453,247 @@ function renderDashboard() {
 
     renderKPIs(geoFiltered);
     renderBifurcation(geoFiltered);
+    renderExecutiveReport(geoFiltered);
     renderSeatTable(tableFiltered);
     renderReservationBreakdown(geoFiltered);
+}
+
+// ===========================================
+// EXECUTIVE NUMERICAL REPORT (1-Page Print Ready)
+// ===========================================
+function renderExecutiveReport(data) {
+    const reportKpiBar = document.getElementById('reportKpiBar');
+    const reportZoneDistrictBody = document.getElementById('reportZoneDistrictBody');
+    const reportCategoryBody = document.getElementById('reportCategoryBody');
+    const reportSourceBody = document.getElementById('reportSourceBody');
+
+    if (!reportKpiBar || !reportZoneDistrictBody) return;
+
+    // 1. Overall Stats Calculation
+    const uniqueSeats = new Set();
+    let totalCandidates = 0;
+    const seatCandidateMap = new Map();
+    const zoneDistrictsMap = new Map(); // Zone -> Map(District -> {seats, seats1Plus, seats2Plus, candCount})
+
+    data.forEach(row => {
+        const zone = String(row.Zone || '').trim();
+        const district = String(row.District || '').trim();
+        const seat = String(row['ZP Seat Number'] || '').trim();
+        const candidateName = String(row['Probable ZP Candidate Name'] || '').trim();
+
+        if (seat && seat !== 'undefined') {
+            uniqueSeats.add(seat);
+            if (!seatCandidateMap.has(seat)) seatCandidateMap.set(seat, 0);
+            if (candidateName && candidateName !== 'undefined') {
+                totalCandidates++;
+                seatCandidateMap.set(seat, seatCandidateMap.get(seat) + 1);
+            }
+
+            if (zone && zone !== 'undefined') {
+                if (!zoneDistrictsMap.has(zone)) zoneDistrictsMap.set(zone, new Map());
+                const distMap = zoneDistrictsMap.get(zone);
+                if (district && district !== 'undefined') {
+                    if (!distMap.has(district)) {
+                        distMap.set(district, { seats: new Set(), totalCand: 0 });
+                    }
+                    const dObj = distMap.get(district);
+                    dObj.seats.add(seat);
+                    if (candidateName && candidateName !== 'undefined') {
+                        dObj.totalCand++;
+                    }
+                }
+            }
+        }
+    });
+
+    let seatsWith1Plus = 0;
+    let seatsWith2Plus = 0;
+    let gapSeats = 0;
+
+    seatCandidateMap.forEach(count => {
+        if (count >= 1) seatsWith1Plus++;
+        if (count >= 2) seatsWith2Plus++;
+        if (count === 0) gapSeats++;
+    });
+
+    // 1. Top KPI Summary Bar
+    reportKpiBar.innerHTML = `
+        <div class="report-kpi-item">
+            <span class="report-kpi-lbl">Total ZP Seats</span>
+            <strong class="report-kpi-val">${uniqueSeats.size}</strong>
+        </div>
+        <div class="report-kpi-item">
+            <span class="report-kpi-lbl">Seats (1+ Cand.)</span>
+            <strong class="report-kpi-val text-success">${seatsWith1Plus}</strong>
+        </div>
+        <div class="report-kpi-item">
+            <span class="report-kpi-lbl">Seats (2+ Cand.)</span>
+            <strong class="report-kpi-val text-warning">${seatsWith2Plus}</strong>
+        </div>
+        <div class="report-kpi-item">
+            <span class="report-kpi-lbl">Gap Seats (0 Cand.)</span>
+            <strong class="report-kpi-val text-danger">${gapSeats}</strong>
+        </div>
+        <div class="report-kpi-item">
+            <span class="report-kpi-lbl">Total Identified Candidates</span>
+            <strong class="report-kpi-val text-primary">${totalCandidates}</strong>
+        </div>
+    `;
+
+    // 2. Zone & District Table (Hierarchical numerical summary)
+    let zoneDistrictHtml = '';
+    const sortedZones = Array.from(zoneDistrictsMap.keys()).sort();
+
+    sortedZones.forEach(zone => {
+        const distMap = zoneDistrictsMap.get(zone);
+        let zoneTotalSeats = new Set();
+        let zoneSeats1Plus = 0;
+        let zoneSeats2Plus = 0;
+        let zoneGap = 0;
+        let zoneTotalCand = 0;
+
+        let districtRowsHtml = '';
+        const sortedDistricts = Array.from(distMap.keys()).sort();
+
+        sortedDistricts.forEach(district => {
+            const dObj = distMap.get(district);
+            let dSeats1Plus = 0;
+            let dSeats2Plus = 0;
+            let dGap = 0;
+
+            dObj.seats.forEach(s => {
+                zoneTotalSeats.add(s);
+                const c = seatCandidateMap.get(s) || 0;
+                if (c >= 1) dSeats1Plus++;
+                if (c >= 2) dSeats2Plus++;
+                if (c === 0) dGap++;
+            });
+
+            zoneSeats1Plus += dSeats1Plus;
+            zoneSeats2Plus += dSeats2Plus;
+            zoneGap += dGap;
+            zoneTotalCand += dObj.totalCand;
+
+            districtRowsHtml += `
+                <tr class="report-dist-row">
+                    <td class="dist-name-cell">↳ ${district}</td>
+                    <td class="num-col">${dObj.seats.size}</td>
+                    <td class="num-col">${dSeats1Plus}</td>
+                    <td class="num-col text-warning font-bold">${dSeats2Plus}</td>
+                    <td class="num-col ${dGap > 0 ? 'text-danger font-bold' : 'text-success'}">${dGap}</td>
+                    <td class="num-col font-bold">${dObj.totalCand}</td>
+                </tr>
+            `;
+        });
+
+        // Zone Header Row
+        zoneDistrictHtml += `
+            <tr class="report-zone-header-row">
+                <td><strong>${zone} Zone (${sortedDistricts.length} Dist.)</strong></td>
+                <td class="num-col font-bold">${zoneTotalSeats.size}</td>
+                <td class="num-col font-bold">${zoneSeats1Plus}</td>
+                <td class="num-col font-bold text-warning">${zoneSeats2Plus}</td>
+                <td class="num-col font-bold ${zoneGap > 0 ? 'text-danger' : 'text-success'}">${zoneGap}</td>
+                <td class="num-col font-bold">${zoneTotalCand}</td>
+            </tr>
+            ${districtRowsHtml}
+        `;
+    });
+
+    // Grand Total Row
+    zoneDistrictHtml += `
+        <tr class="report-grand-total-row">
+            <td><strong>STATE TOTAL</strong></td>
+            <td class="num-col"><strong>${uniqueSeats.size}</strong></td>
+            <td class="num-col"><strong>${seatsWith1Plus}</strong></td>
+            <td class="num-col text-warning"><strong>${seatsWith2Plus}</strong></td>
+            <td class="num-col ${gapSeats > 0 ? 'text-danger' : 'text-success'}"><strong>${gapSeats}</strong></td>
+            <td class="num-col"><strong>${totalCandidates}</strong></td>
+        </tr>
+    `;
+    reportZoneDistrictBody.innerHTML = zoneDistrictHtml;
+
+    // 3. Broad Categories Calculation & Normalization
+    const rawCatMap = new Map();
+    let totalCategorized = 0;
+    data.forEach(row => {
+        const candName = String(row['Probable ZP Candidate Name'] || '').trim();
+        if (!candName || candName === 'undefined') return;
+
+        let cat = String(row['Category'] || '').trim();
+        if (!cat || cat === 'undefined' || cat === '-') cat = 'Other / Unspecified';
+        else {
+            const lower = cat.toLowerCase();
+            if (lower.includes('gen')) cat = 'General';
+            else if (lower === 'obc' || lower.includes('backward class') || lower === 'bc') cat = 'OBC';
+            else if (lower === 'ebc' || lower.includes('extremely')) cat = 'EBC';
+            else if (lower === 'sc' || lower.includes('scheduled caste')) cat = 'SC';
+            else if (lower === 'st' || lower.includes('scheduled tribe')) cat = 'ST';
+            else if (lower.includes('minority') || lower.includes('muslim')) cat = 'Minority';
+        }
+
+        rawCatMap.set(cat, (rawCatMap.get(cat) || 0) + 1);
+        totalCategorized++;
+    });
+
+    const sortedCats = Array.from(rawCatMap.entries()).sort((a, b) => b[1] - a[1]);
+    reportCategoryBody.innerHTML = sortedCats.map(([cat, count]) => {
+        const pct = totalCategorized > 0 ? ((count / totalCategorized) * 100).toFixed(1) : 0;
+        return `
+            <tr>
+                <td><strong>${cat}</strong></td>
+                <td class="num-col font-bold">${count}</td>
+                <td class="num-col text-muted">${pct}%</td>
+            </tr>
+        `;
+    }).join('') + `
+        <tr class="report-grand-total-row">
+            <td><strong>Total</strong></td>
+            <td class="num-col"><strong>${totalCategorized}</strong></td>
+            <td class="num-col"><strong>100%</strong></td>
+        </tr>
+    `;
+
+    // 4. Primary Recommendation Sources Calculation & Grouping
+    const rawSourceMap = new Map();
+    let totalSources = 0;
+    data.forEach(row => {
+        const candName = String(row['Probable ZP Candidate Name'] || '').trim();
+        if (!candName || candName === 'undefined') return;
+
+        let src = String(row['Recommendation Source Categories'] || '').trim();
+        if (!src || src === 'undefined' || src === '-') src = 'Other Source';
+        else {
+            const lower = src.toLowerCase();
+            if (lower.includes('sangathan')) src = 'Sangathan';
+            else if (lower.includes('onboard')) src = 'Onboarded';
+            else if (lower.includes('runnerup') || lower.includes('runner up')) src = 'Runnerup ZP';
+            else if (lower.includes('incumbent')) src = 'Incumbent ZP';
+            else if (lower.includes('acc')) src = 'ACC / Frontals';
+            else if (lower.includes('new name') || lower.includes('recommendation')) src = 'Direct Recommendation';
+        }
+
+        rawSourceMap.set(src, (rawSourceMap.get(src) || 0) + 1);
+        totalSources++;
+    });
+
+    const sortedSources = Array.from(rawSourceMap.entries()).sort((a, b) => b[1] - a[1]);
+    reportSourceBody.innerHTML = sortedSources.map(([src, count]) => {
+        const pct = totalSources > 0 ? ((count / totalSources) * 100).toFixed(1) : 0;
+        return `
+            <tr>
+                <td><strong>${src}</strong></td>
+                <td class="num-col font-bold">${count}</td>
+                <td class="num-col text-muted">${pct}%</td>
+            </tr>
+        `;
+    }).join('') + `
+        <tr class="report-grand-total-row">
+            <td><strong>Total</strong></td>
+            <td class="num-col"><strong>${totalSources}</strong></td>
+            <td class="num-col"><strong>100%</strong></td>
+        </tr>
+    `;
 }
 
 // ===========================================
