@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZP Candidate Dashboard</title>
+    <meta name="description" content="Zila Parishad Candidate Dashboard — zone-wise & district-wise bifurcation, search by seat number, candidate count metrics, and interactive candidate details.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>ZP Dashboard</h2>
+            </div>
+
+            <!-- ZP Seat Search -->
+            <div class="seat-search-group">
+                <label for="seatSearch">Search ZP Seat Number</label>
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="seatSearch" placeholder="e.g. Raxaul_1" autocomplete="off">
+                    <button id="clearSearch" class="clear-search-btn" title="Clear search">&times;</button>
+                </div>
+                <ul id="seatSuggestions" class="seat-suggestions"></ul>
+            </div>
+
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="candidateStatusFilter">Candidate Status</label>
+                    <select id="candidateStatusFilter">
+                        <option value="All">All Seats</option>
+                        <option value="multi">2+ Candidates (Multi)</option>
+                        <option value="single">1 Candidate (Single)</option>
+                        <option value="gap">0 Candidates (Gap)</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="zoneFilter">Zone</label>
+                    <select id="zoneFilter">
+                        <option value="All">All</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="districtFilter">District</label>
+                    <select id="districtFilter">
+                        <option value="All">All</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="pcFilter">PC</label>
+                    <select id="pcFilter">
+                        <option value="All">All</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="acFilter">AC</label>
+                    <select id="acFilter">
+                        <option value="All">All</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="blockFilter">Block</label>
+                    <select id="blockFilter">
+                        <option value="All">All</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="reservationFilter">Reservation Status</label>
+                    <select id="reservationFilter">
+                        <option value="All">All</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="refreshBtn" class="refresh-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.05l5.67-5.67"/>
+                </svg>
+                Refresh Data
+            </button>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-titles">
+                    <h1>Candidate Overview</h1>
+                    <p class="header-subtitle">Comprehensive Zila Parishad seat & candidate analysis</p>
+                </div>
+                <div id="loadingIndicator" class="loading-indicator">
+                    <div class="spinner"></div> Loading Data...
+                </div>
+            </header>
+
+            <!-- KPIs (5 Cards including 2+ candidates) -->
+            <section class="kpi-section">
+                <div class="kpi-card" id="card-total-seats" title="Click to show all seats">
+                    <div class="kpi-header">
+                        <h3>Total ZP Seats</h3>
+                        <span class="kpi-icon">🏛️</span>
+                    </div>
+                    <p id="kpi-seats" class="kpi-value">-</p>
+                    <span class="kpi-subtext">Total constituencies</span>
+                </div>
+                <div class="kpi-card" id="card-seats-identified" title="Click to filter seats with candidates">
+                    <div class="kpi-header">
+                        <h3>Seats with Candidates</h3>
+                        <span class="kpi-icon">✅</span>
+                    </div>
+                    <p id="kpi-unique" class="kpi-value">-</p>
+                    <span class="kpi-subtext">At least 1 candidate</span>
+                </div>
+                <div class="kpi-card highlight-card" id="card-multi-candidates" title="Click to filter seats with 2+ candidates">
+                    <div class="kpi-header">
+                        <h3>Seats with 2+ Candidates</h3>
+                        <span class="kpi-icon">👥</span>
+                    </div>
+                    <p id="kpi-multi" class="kpi-value">-</p>
+                    <span class="kpi-subtext">Multiple probable candidates</span>
+                </div>
+                <div class="kpi-card gap-card" id="card-gap-seats" title="Click to filter gap seats">
+                    <div class="kpi-header">
+                        <h3>Gap (Not Identified)</h3>
+                        <span class="kpi-icon">⚠️</span>
+                    </div>
+                    <p id="kpi-gap" class="kpi-value">-</p>
+                    <span class="kpi-subtext">0 candidates identified</span>
+                </div>
+                <div class="kpi-card" id="card-total-candidates">
+                    <div class="kpi-header">
+                        <h3>Total Candidates</h3>
+                        <span class="kpi-icon">📋</span>
+                    </div>
+                    <p id="kpi-total" class="kpi-value">-</p>
+                    <span class="kpi-subtext">Total candidate profiles</span>
+                </div>
+            </section>
+
+            <!-- Zone-wise & District-wise Bifurcation -->
+            <section id="bifurcationSection" class="bifurcation-section">
+                <div class="bifurcation-header-row">
+                    <div class="bifurcation-tabs">
+                        <button class="bif-tab active" data-tab="zone">Zone-wise Bifurcation</button>
+                        <button class="bif-tab" data-tab="district">District-wise Bifurcation</button>
+                    </div>
+                    <span class="bif-tip">💡 Click any row to filter by Zone / District</span>
+                </div>
+
+                <!-- Zone-wise Table -->
+                <div id="zoneTable" class="bif-table-container bif-active">
+                    <table class="bif-table">
+                        <thead>
+                            <tr>
+                                <th>Zone</th>
+                                <th>Districts</th>
+                                <th>Total Seats</th>
+                                <th>Seats with Candidates</th>
+                                <th>Seats (2+ Cand.)</th>
+                                <th>Gap</th>
+                                <th>Total Candidates</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zoneTableBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- District-wise Table -->
+                <div id="districtTable" class="bif-table-container">
+                    <table class="bif-table">
+                        <thead>
+                            <tr>
+                                <th>District</th>
+                                <th>Zone</th>
+                                <th>ZP Chairman</th>
+                                <th>Total Seats</th>
+                                <th>Seats with Candidates</th>
+                                <th>Seats (2+ Cand.)</th>
+                                <th>Gap</th>
+                                <th>Total Candidates</th>
+                            </tr>
+                        </thead>
+                        <tbody id="districtTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Reservation Breakdown -->
+            <section id="reservationBreakdown" class="reservation-breakdown" style="display: none;">
+                <div class="section-title-sm">Reservation Breakdown</div>
+                <div id="reservationChips" class="reservation-chips"></div>
+            </section>
+
+            <!-- Seat-wise Candidates (Spacious, prominent section with numbered candidate tags) -->
+            <section class="table-section">
+                <div class="table-header-row">
+                    <div class="table-title-area">
+                        <h2>Seat-wise Candidate List</h2>
+                        <span id="activeFilterBadge" class="active-filter-badge" style="display: none;"></span>
+                    </div>
+                    <span id="resultCount" class="result-count"></span>
+                </div>
+                <div class="table-container">
+                    <table id="candidateTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 140px;">ZP Seat</th>
+                                <th style="width: 170px;">Reservation</th>
+                                <th style="width: 150px;">District</th>
+                                <th style="width: 150px;">Block</th>
+                                <th style="width: 110px;">Candidates</th>
+                                <th>Probable Candidates <span class="table-header-hint">(Click any name to open full detail)</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="candidateTableBody">
+                            <!-- Rows populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Candidate Detail Modal -->
+    <div id="candidateModal" class="modal-overlay">
+        <div class="modal-card">
+            <button id="modalClose" class="modal-close" title="Close (Esc)">&times;</button>
+            <div id="modalContent" class="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- SheetJS for XLSX processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
