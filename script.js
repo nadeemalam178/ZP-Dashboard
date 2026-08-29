@@ -90,6 +90,8 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') candidateModal.classList.remove('show');
 });
 
+const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+
 // Event Listeners for Filters
 candidateStatusFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateActiveKPICard(); renderDashboard(); });
 incumbentFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; renderDashboard(); });
@@ -99,6 +101,30 @@ pcFilter.addEventListener('change', () => { searchMode = false; seatSearch.value
 acFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateFilters('ac'); renderDashboard(); });
 blockFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; renderDashboard(); });
 reservationFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; renderDashboard(); });
+
+if (resetFiltersBtn) {
+    resetFiltersBtn.addEventListener('click', resetAllFilters);
+}
+
+function resetAllFilters() {
+    searchMode = false;
+    searchedSeat = '';
+    seatSearch.value = '';
+    seatSuggestions.classList.remove('show');
+
+    candidateStatusFilter.value = 'All';
+    incumbentFilter.value = 'All';
+    zoneFilter.value = 'All';
+    districtFilter.value = 'All';
+    pcFilter.value = 'All';
+    acFilter.value = 'All';
+    blockFilter.value = 'All';
+    reservationFilter.value = 'All';
+
+    updateFilters('zone', true);
+    updateActiveKPICard();
+    renderDashboard();
+}
 
 // Interactive KPI Card Clicks
 cardTotalSeats.addEventListener('click', () => {
