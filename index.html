@@ -12,10 +12,14 @@
 </head>
 <body>
     <div class="dashboard-container">
+        <!-- Mobile Sidebar Overlay Backdrop -->
+        <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="mainSidebar">
             <div class="sidebar-header">
                 <h2>ZP Dashboard</h2>
+                <button id="sidebarCloseBtn" class="sidebar-close-btn" title="Close Filters">&times;</button>
             </div>
 
             <!-- ZP Seat Search -->

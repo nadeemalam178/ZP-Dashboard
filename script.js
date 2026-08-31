@@ -210,27 +210,116 @@ document.addEventListener('keydown', (e) => {
 
 const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 const mobileFilterToggle = document.getElementById('mobileFilterToggle');
+const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
 const sidebarElement = document.querySelector('.sidebar');
 
-if (mobileFilterToggle && sidebarElement) {
+function openMobileSidebar() {
+    if (sidebarElement) sidebarElement.classList.add('mobile-open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.add('show');
+    if (mobileFilterToggle) mobileFilterToggle.classList.add('active');
+    document.body.style.overflow = 'hidden'; // prevent background scroll when drawer is open
+}
+
+function closeMobileSidebar() {
+    if (sidebarElement) sidebarElement.classList.remove('mobile-open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.remove('show');
+    if (mobileFilterToggle) mobileFilterToggle.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+if (mobileFilterToggle) {
     mobileFilterToggle.addEventListener('click', () => {
-        sidebarElement.classList.toggle('mobile-open');
-        mobileFilterToggle.classList.toggle('active');
+        if (sidebarElement && sidebarElement.classList.contains('mobile-open')) {
+            closeMobileSidebar();
+        } else {
+            openMobileSidebar();
+        }
     });
 }
 
+if (sidebarCloseBtn) {
+    sidebarCloseBtn.addEventListener('click', closeMobileSidebar);
+}
+
+if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+}
+
+// Auto-close mobile drawer on filter selection if screen is small
+function autoDismissMobileDrawer() {
+    if (window.innerWidth <= 900) {
+        closeMobileSidebar();
+    }
+}
+
 // Event Listeners for Filters
-candidateStatusFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateActiveKPICard(); renderDashboard(); });
-incumbentFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; renderDashboard(); });
-zoneFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateFilters('zone'); renderDashboard(); });
-districtFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateFilters('district'); renderDashboard(); });
-pcFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateFilters('pc'); renderDashboard(); });
-acFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateFilters('ac'); renderDashboard(); });
-blockFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; renderDashboard(); });
-reservationFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; renderDashboard(); });
+candidateStatusFilter.addEventListener('change', () => { 
+    searchMode = false; 
+    seatSearch.value = ''; 
+    updateActiveKPICard(); 
+    renderDashboard(); 
+    autoDismissMobileDrawer();
+});
+
+incumbentFilter.addEventListener('change', () => { 
+    searchMode = false; 
+    seatSearch.value = ''; 
+    renderDashboard(); 
+    autoDismissMobileDrawer();
+});
+
+zoneFilter.addEventListener('change', () => { 
+    searchMode = false; 
+    seatSearch.value = ''; 
+    updateFilters('zone'); 
+    renderDashboard(); 
+    autoDismissMobileDrawer();
+});
+
+districtFilter.addEventListener('change', () => { 
+    searchMode = false; 
+    seatSearch.value = ''; 
+    updateFilters('district'); 
+    renderDashboard(); 
+    autoDismissMobileDrawer();
+});
+
+pcFilter.addEventListener('change', () => { 
+    searchMode = false; 
+    seatSearch.value = ''; 
+    updateFilters('pc'); 
+    renderDashboard(); 
+    autoDismissMobileDrawer();
+});
+
+acFilter.addEventListener('change', () => { 
+    searchMode = false; 
+    seatSearch.value = ''; 
+    updateFilters('ac'); 
+    renderDashboard(); 
+    autoDismissMobileDrawer();
+});
+
+blockFilter.addEventListener('change', () => { 
+    searchMode = false; 
+    seatSearch.value = ''; 
+    renderDashboard(); 
+    autoDismissMobileDrawer();
+});
+
+reservationFilter.addEventListener('change', () => { 
+    searchMode = false; 
+    seatSearch.value = ''; 
+    renderDashboard(); 
+    autoDismissMobileDrawer();
+});
 
 if (resetFiltersBtn) {
-    resetFiltersBtn.addEventListener('click', resetAllFilters);
+    resetFiltersBtn.addEventListener('click', () => {
+        resetAllFilters();
+        autoDismissMobileDrawer();
+    });
 }
 
 function resetAllFilters() {
@@ -367,6 +456,7 @@ function selectSeat(seat) {
     reservationFilter.value = 'All';
     updateActiveKPICard();
     renderDashboard();
+    autoDismissMobileDrawer();
 }
 
 async function loadData() {
