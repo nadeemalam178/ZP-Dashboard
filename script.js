@@ -63,7 +63,94 @@ let searchedSeat = '';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', loadData);
-refreshBtn.addEventListener('click', loadData);
+if (refreshBtn) {
+    refreshBtn.addEventListener('click', loadData);
+}
+
+async function loadData() {
+    loadingIndicator.classList.add('show');
+    try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+
+        // 1. Final Candidate Sheet
+        const finalCandidateSheet = workbook.Sheets['Final Candidate'];
+        candidatesData = XLSX.utils.sheet_to_json(finalCandidateSheet, { defval: '' });
+
+        // 2. Incumbent ZP Sheet
+        incumbentMap.clear();
+        const incumbentSheet = workbook.Sheets['Incumbent ZP'];
+        if (incumbentSheet) {
+            const incumbentRows = XLSX.utils.sheet_to_json(incumbentSheet, { defval: '' });
+            incumbentRows.forEach(row => {
+                const seat = String(row['ZP Seat Number'] || '').trim();
+                if (seat && seat !== 'undefined') {
+                    incumbentMap.set(seat, {
+                        district: String(row['District'] || '').trim(),
+                        pc: String(row['PC'] || '').trim(),
+                        ac: String(row['AC'] || '').trim(),
+                        block: String(row['Block'] || '').trim(),
+                        panchayat: String(row['Panchayat'] || '').trim(),
+                        seatNumber: seat,
+                        chairman: String(row['ZP Chairman'] || '').trim(),
+                        viceChairman: String(row['ZP Vice Chairman'] || '').trim(),
+                        incumbentName: String(row['Incumbent ZP Name'] || '').trim(),
+                        inFinalList: String(row['In Final Candidates List'] || '').trim(),
+                        incumbentNumber: String(row['Incumbent ZP Number'] || '').trim(),
+                        currentReservation: String(row['Current Seat Reservation'] || '').trim(),
+                        probableReservation: String(row['Probable Seat Reservation'] || '').trim(),
+                        party: String(row['Party Inclination'] || '').trim(),
+                        callingStatus: String(row['Calling Status'] || '').trim(),
+                        meetingStatus: String(row['PK Meeting Status'] || '').trim(),
+                        wantContestJSP: String(row['Want contest with JSP'] || '').trim(),
+                        onboardingStatus: String(row['Onboarding Status '] || row['Onboarding Status'] || '').trim(),
+                        meetingDate: String(row['Meeting Date'] || '').trim(),
+                        remarks: String(row['Remarks'] || '').trim(),
+                        runnerupName: String(row['Runnerup ZP Name'] || '').trim(),
+                        runnerupNumber: String(row['Runnerup ZP Number'] || '').trim()
+                    });
+                }
+            });
+        }
+
+        // 3. ZP Chairman Sheet
+        chairmanMap.clear();
+        const chairmanSheet = workbook.Sheets['ZP Chairman'];
+        if (chairmanSheet) {
+            const chairmanRows = XLSX.utils.sheet_to_json(chairmanSheet, { defval: '' });
+            chairmanRows.forEach(row => {
+                const dist = String(row['District'] || row['District Name'] || '').trim();
+                if (dist && dist !== 'undefined') {
+                    chairmanMap.set(dist, {
+                        district: dist,
+                        chairman: String(row['District ZP Chairman'] || row['Chairman Name'] || row['Incumbent Chairman'] || '').trim(),
+                        party: String(row['Party'] || row['Party Inclination'] || '').trim(),
+                        viceChairman: String(row['Vice Chairman'] || row['ZP Vice Chairman'] || '').trim(),
+                        profile: String(row['Profile'] || '').trim()
+                    });
+                }
+            });
+        }
+
+        // 4. PK Review Report Sheet
+        const pkSheet = workbook.Sheets['PK Review Report'];
+        if (pkSheet) {
+            pkData = XLSX.utils.sheet_to_json(pkSheet, { range: 1, defval: '' });
+        }
+
+        allSeatNumbers = getUniqueValues(candidatesData, 'ZP Seat Number');
+
+        populateInitialFilters();
+        updateActiveKPICard();
+        renderDashboard();
+    } catch (error) {
+        console.error("Error loading data:", error);
+        alert("Failed to load data from Google Sheets.");
+    } finally {
+        loadingIndicator.classList.remove('show');
+    }
+}
 
 // Bifurcation tab switching
 bifTabs.forEach(tab => {
@@ -122,6 +209,15 @@ document.addEventListener('keydown', (e) => {
 });
 
 const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+const mobileFilterToggle = document.getElementById('mobileFilterToggle');
+const sidebarElement = document.querySelector('.sidebar');
+
+if (mobileFilterToggle && sidebarElement) {
+    mobileFilterToggle.addEventListener('click', () => {
+        sidebarElement.classList.toggle('mobile-open');
+        mobileFilterToggle.classList.toggle('active');
+    });
+}
 
 // Event Listeners for Filters
 candidateStatusFilter.addEventListener('change', () => { searchMode = false; seatSearch.value = ''; updateActiveKPICard(); renderDashboard(); });
@@ -547,11 +643,14 @@ function renderExecutiveReport(data) {
         if (count === 0) gapSeats++;
     });
 
+    const totalSeatsCount = uniqueSeats.size;
+    const overallCompletionPct = totalSeatsCount > 0 ? (((seatsWith1Plus + seatsWith2Plus) / (totalSeatsCount * 2)) * 100).toFixed(2) : '0.00';
+
     // 1. Top KPI Summary Bar
     reportKpiBar.innerHTML = `
         <div class="report-kpi-item">
             <span class="report-kpi-lbl">Total ZP Seats</span>
-            <strong class="report-kpi-val">${uniqueSeats.size}</strong>
+            <strong class="report-kpi-val">${totalSeatsCount}</strong>
         </div>
         <div class="report-kpi-item">
             <span class="report-kpi-lbl">Seats (1+ Cand.)</span>
@@ -566,8 +665,12 @@ function renderExecutiveReport(data) {
             <strong class="report-kpi-val text-danger">${gapSeats}</strong>
         </div>
         <div class="report-kpi-item">
-            <span class="report-kpi-lbl">Total Identified Candidates</span>
+            <span class="report-kpi-lbl">Total Candidates</span>
             <strong class="report-kpi-val text-primary">${totalCandidates}</strong>
+        </div>
+        <div class="report-kpi-item">
+            <span class="report-kpi-lbl">Overall Completion</span>
+            <strong class="report-kpi-val text-success">${overallCompletionPct}%</strong>
         </div>
     `;
 
@@ -605,27 +708,35 @@ function renderExecutiveReport(data) {
             zoneGap += dGap;
             zoneTotalCand += dObj.totalCand;
 
+            const dTotalSeats = dObj.seats.size;
+            const dCompletionPct = dTotalSeats > 0 ? (((dSeats1Plus + dSeats2Plus) / (dTotalSeats * 2)) * 100).toFixed(2) : '0.00';
+
             districtRowsHtml += `
                 <tr class="report-dist-row">
                     <td class="dist-name-cell">↳ ${district}</td>
-                    <td class="num-col">${dObj.seats.size}</td>
+                    <td class="num-col">${dTotalSeats}</td>
                     <td class="num-col">${dSeats1Plus}</td>
                     <td class="num-col text-warning font-bold">${dSeats2Plus}</td>
                     <td class="num-col ${dGap > 0 ? 'text-danger font-bold' : 'text-success'}">${dGap}</td>
                     <td class="num-col font-bold">${dObj.totalCand}</td>
+                    <td class="num-col font-bold ${parseFloat(dCompletionPct) === 100 ? 'text-success' : ''}">${dCompletionPct}%</td>
                 </tr>
             `;
         });
+
+        const zoneSeatsTotal = zoneTotalSeats.size;
+        const zoneCompletionPct = zoneSeatsTotal > 0 ? (((zoneSeats1Plus + zoneSeats2Plus) / (zoneSeatsTotal * 2)) * 100).toFixed(2) : '0.00';
 
         // Zone Header Row
         zoneDistrictHtml += `
             <tr class="report-zone-header-row">
                 <td><strong>${zone} Zone (${sortedDistricts.length} Dist.)</strong></td>
-                <td class="num-col font-bold">${zoneTotalSeats.size}</td>
+                <td class="num-col font-bold">${zoneSeatsTotal}</td>
                 <td class="num-col font-bold">${zoneSeats1Plus}</td>
                 <td class="num-col font-bold text-warning">${zoneSeats2Plus}</td>
                 <td class="num-col font-bold ${zoneGap > 0 ? 'text-danger' : 'text-success'}">${zoneGap}</td>
                 <td class="num-col font-bold">${zoneTotalCand}</td>
+                <td class="num-col font-bold text-success">${zoneCompletionPct}%</td>
             </tr>
             ${districtRowsHtml}
         `;
@@ -635,11 +746,12 @@ function renderExecutiveReport(data) {
     zoneDistrictHtml += `
         <tr class="report-grand-total-row">
             <td><strong>STATE TOTAL</strong></td>
-            <td class="num-col"><strong>${uniqueSeats.size}</strong></td>
+            <td class="num-col"><strong>${totalSeatsCount}</strong></td>
             <td class="num-col"><strong>${seatsWith1Plus}</strong></td>
             <td class="num-col text-warning"><strong>${seatsWith2Plus}</strong></td>
             <td class="num-col ${gapSeats > 0 ? 'text-danger' : 'text-success'}"><strong>${gapSeats}</strong></td>
             <td class="num-col"><strong>${totalCandidates}</strong></td>
+            <td class="num-col text-success"><strong>${overallCompletionPct}%</strong></td>
         </tr>
     `;
     reportZoneDistrictBody.innerHTML = zoneDistrictHtml;
@@ -657,7 +769,7 @@ function renderExecutiveReport(data) {
             const lower = src.toLowerCase();
             if (lower.includes('sangathan')) src = 'Sangathan';
             else if (lower.includes('onboard')) src = 'Onboarded';
-            else if (lower.includes('runnerup') || lower.includes('runner up')) src = 'Runnerup ZP';
+            else if (lower.includes('runnerup') || lower.includes('runner up') || lower.includes('1st runner') || lower.includes('runner-up')) src = '1st Runner Up';
             else if (lower.includes('incumbent')) src = 'Incumbent ZP';
             else if (lower.includes('acc')) src = 'ACC / Frontals';
             else if (lower.includes('new name') || lower.includes('recommendation')) src = 'Direct Recommendation';
@@ -670,7 +782,7 @@ function renderExecutiveReport(data) {
     const sortedSources = Array.from(rawSourceMap.entries()).sort((a, b) => b[1] - a[1]);
     if (reportSourceBody) {
         reportSourceBody.innerHTML = sortedSources.map(([src, count]) => {
-            const pct = totalSources > 0 ? ((count / totalSources) * 100).toFixed(1) : 0;
+            const pct = totalSources > 0 ? ((count / totalSources) * 100).toFixed(2) : '0.00';
             return `
                 <tr>
                     <td><strong>${src}</strong></td>
@@ -682,7 +794,7 @@ function renderExecutiveReport(data) {
             <tr class="report-grand-total-row">
                 <td><strong>Total</strong></td>
                 <td class="num-col"><strong>${totalSources}</strong></td>
-                <td class="num-col"><strong>100%</strong></td>
+                <td class="num-col"><strong>100.00%</strong></td>
             </tr>
         `;
     }
