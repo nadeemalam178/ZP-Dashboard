@@ -5,100 +5,114 @@ import warnings
 # Suppress pandas openpyxl warning
 warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
-st.set_page_config(page_title="ZP Dashboard", layout="wide")
+st.set_page_config(page_title="ZP Dashboard - Live Google Sheets", layout="wide")
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def load_data():
-    url = 'https://docs.google.com/spreadsheets/d/1ZtME2kaltetF-VNuuH4NATAHx6qSsxFkbZ5fSPSG-CM/export?format=xlsx'
+    urls = [
+        'https://docs.google.com/spreadsheets/d/1ZtME2kaltetF-VNuuH4NATAHx6qSsxFkbZ5fSPSG-CM/export?format=xlsx',
+        'https://docs.google.com/spreadsheets/d/1ebxTaRpQOgCNWm2mpwk4qSviNiM4c_HAZX-xuiumlYA/export?format=xlsx'
+    ]
     
-    # Load Final Candidate
-    try:
-        df_candidates = pd.read_excel(url, sheet_name='Final Candidate')
-    except Exception as e:
-        st.error(f"Error loading Final Candidate tab: {e}")
-        df_candidates = pd.DataFrame()
-        
-    # Load PK Review Report
-    try:
-        df_pk = pd.read_excel(url, sheet_name='PK Review Report', header=1)
-    except Exception as e:
-        st.error(f"Error loading PK Review Report tab: {e}")
-        df_pk = pd.DataFrame()
+    cand_dfs = []
+    pk_dfs = []
+    
+    # Strictly fetch both Google Sheets live
+    for url in urls:
+        try:
+            df_c = pd.read_excel(url, sheet_name='Final Candidate')
+            cand_dfs.append(df_c)
+        except Exception as e:
+            st.error(f"Error fetching Final Candidate from live sheet: {e}")
+        try:
+            df_p = pd.read_excel(url, sheet_name='Gap Report')
+            pk_dfs.append(df_p)
+        except Exception:
+            try:
+                df_p = pd.read_excel(url, sheet_name='PK Review Report', header=1)
+                pk_dfs.append(df_p)
+            except Exception:
+                pass
+
+    df_candidates = pd.concat(cand_dfs, ignore_index=True) if cand_dfs else pd.DataFrame()
+    df_pk = pd.concat(pk_dfs, ignore_index=True) if pk_dfs else pd.DataFrame()
         
     return df_candidates, df_pk
 
 df_candidates, df_pk = load_data()
 
-st.title("ZP Candidate Dashboard")
+st.title("ZP Candidate Dashboard (Live Google Sheets)")
 
-if df_candidates.empty or df_pk.empty:
+if df_candidates.empty:
+    st.error("No data fetched from Google Sheets. Please verify connection and refresh.")
     st.stop()
 
 # --- Sidebar Filters ---
-st.sidebar.header("Filters")
+st.sidebar.header("Filters (Multi-Select)")
 
-if st.sidebar.button("Refresh Data"):
+if st.sidebar.button("🔄 Sync Live Google Sheets"):
     st.cache_data.clear()
     st.rerun()
 
 # Convert to string to avoid issues with mixed types
-df_candidates['Zone'] = df_candidates['Zone'].astype(str)
-df_candidates['District'] = df_candidates['District'].astype(str)
-df_candidates['PC'] = df_candidates['PC'].astype(str)
-df_candidates['AC'] = df_candidates['AC'].astype(str)
-df_candidates['Block'] = df_candidates['Block'].astype(str)
+df_candidates['Zone'] = df_candidates['Zone'].astype(str).str.strip()
+df_candidates['District'] = df_candidates['District'].astype(str).str.strip()
+df_candidates['PC'] = df_candidates['PC'].astype(str).str.strip()
+df_candidates['AC'] = df_candidates['AC'].astype(str).str.strip()
+df_candidates['Block'] = df_candidates['Block'].astype(str).str.strip()
 
-zones = sorted([z for z in df_candidates['Zone'].unique() if z != 'nan'])
-selected_zone = st.sidebar.selectbox("Select Zone", ["All"] + zones)
+# Multi-select filters
+zones = sorted([z for z in df_candidates['Zone'].unique() if z and z != 'nan'])
+selected_zones = st.sidebar.multiselect("Select Zone(s)", zones, default=[])
 
-if selected_zone != "All":
-    districts = sorted([d for d in df_candidates[df_candidates['Zone'] == selected_zone]['District'].unique() if d != 'nan'])
-else:
-    districts = sorted([d for d in df_candidates['District'].unique() if d != 'nan'])
-selected_district = st.sidebar.selectbox("Select District", ["All"] + districts)
+df_z = df_candidates if not selected_zones else df_candidates[df_candidates['Zone'].isin(selected_zones)]
+districts = sorted([d for d in df_z['District'].unique() if d and d != 'nan'])
+selected_districts = st.sidebar.multiselect("Select District(s)", districts, default=[])
 
-if selected_district != "All":
-    pcs = sorted([p for p in df_candidates[df_candidates['District'] == selected_district]['PC'].unique() if p != 'nan'])
-else:
-    pcs = sorted([p for p in df_candidates['PC'].unique() if p != 'nan'])
-selected_pc = st.sidebar.selectbox("Select PC", ["All"] + pcs)
+df_d = df_z if not selected_districts else df_z[df_z['District'].isin(selected_districts)]
+pcs = sorted([p for p in df_d['PC'].unique() if p and p != 'nan'])
+selected_pcs = st.sidebar.multiselect("Select PC(s)", pcs, default=[])
 
-if selected_pc != "All":
-    acs = sorted([a for a in df_candidates[df_candidates['PC'] == selected_pc]['AC'].unique() if a != 'nan'])
-else:
-    acs = sorted([a for a in df_candidates['AC'].unique() if a != 'nan'])
-selected_ac = st.sidebar.selectbox("Select AC", ["All"] + acs)
+df_pc = df_d if not selected_pcs else df_d[df_d['PC'].isin(selected_pcs)]
+acs = sorted([a for a in df_pc['AC'].unique() if a and a != 'nan'])
+selected_acs = st.sidebar.multiselect("Select AC(s)", acs, default=[])
 
-if selected_ac != "All":
-    blocks = sorted([b for b in df_candidates[df_candidates['AC'] == selected_ac]['Block'].unique() if b != 'nan'])
-else:
-    blocks = sorted([b for b in df_candidates['Block'].unique() if b != 'nan'])
-selected_block = st.sidebar.selectbox("Select Block", ["All"] + blocks)
+df_ac = df_pc if not selected_acs else df_pc[df_pc['AC'].isin(selected_acs)]
+blocks = sorted([b for b in df_ac['Block'].unique() if b and b != 'nan'])
+selected_blocks = st.sidebar.multiselect("Select Block(s)", blocks, default=[])
 
+# Universal Search
+search_query = st.sidebar.text_input("🔍 Universal Search (English / हिंदी)", placeholder="Candidate, Chairman, Seat, Phone...")
 
 # --- Apply Filters ---
 filtered_candidates = df_candidates.copy()
 
-if selected_zone != "All":
-    filtered_candidates = filtered_candidates[filtered_candidates['Zone'] == selected_zone]
-if selected_district != "All":
-    filtered_candidates = filtered_candidates[filtered_candidates['District'] == selected_district]
-if selected_pc != "All":
-    filtered_candidates = filtered_candidates[filtered_candidates['PC'] == selected_pc]
-if selected_ac != "All":
-    filtered_candidates = filtered_candidates[filtered_candidates['AC'] == selected_ac]
-if selected_block != "All":
-    filtered_candidates = filtered_candidates[filtered_candidates['Block'] == selected_block]
+if search_query:
+    sq = search_query.strip().lower()
+    # Search across all columns
+    mask = filtered_candidates.apply(lambda row: row.astype(str).str.lower().str.contains(sq).any(), axis=1)
+    filtered_candidates = filtered_candidates[mask]
+
+if selected_zones:
+    filtered_candidates = filtered_candidates[filtered_candidates['Zone'].isin(selected_zones)]
+if selected_districts:
+    filtered_candidates = filtered_candidates[filtered_candidates['District'].isin(selected_districts)]
+if selected_pcs:
+    filtered_candidates = filtered_candidates[filtered_candidates['PC'].isin(selected_pcs)]
+if selected_acs:
+    filtered_candidates = filtered_candidates[filtered_candidates['AC'].isin(selected_acs)]
+if selected_blocks:
+    filtered_candidates = filtered_candidates[filtered_candidates['Block'].isin(selected_blocks)]
 
 # --- KPIs from PK Review Report ---
 st.header("KPIs")
 pk_filtered = df_pk.copy()
 
 # Filter PK report based on selection
-if selected_zone != "All":
-    pk_filtered = pk_filtered[pk_filtered['Zone'] == selected_zone]
-if selected_district != "All":
-    pk_filtered = pk_filtered[pk_filtered['District'] == selected_district]
+if selected_zones:
+    pk_filtered = pk_filtered[pk_filtered['Zone'].isin(selected_zones)]
+if selected_districts:
+    pk_filtered = pk_filtered[pk_filtered['District'].isin(selected_districts)]
 
 # Only calculate sum if we have numeric data
 if not pk_filtered.empty:

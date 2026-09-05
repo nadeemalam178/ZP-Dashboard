@@ -22,7 +22,7 @@
                 <button id="sidebarCloseBtn" class="sidebar-close-btn" title="Close Filters">&times;</button>
             </div>
 
-            <!-- ZP Seat Search -->
+            <!-- Left Pane: ZP Seat Search Only -->
             <div class="seat-search-group">
                 <label for="seatSearch">Search ZP Seat Number</label>
                 <div class="search-input-wrapper">
@@ -31,72 +31,50 @@
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                     <input type="text" id="seatSearch" placeholder="e.g. Raxaul_1" autocomplete="off">
-                    <button id="clearSearch" class="clear-search-btn" title="Clear search">&times;</button>
+                    <button id="clearSearch" class="clear-search-btn" title="Clear seat search">&times;</button>
                 </div>
                 <ul id="seatSuggestions" class="seat-suggestions"></ul>
             </div>
 
             <div class="filters">
                 <div class="filter-group">
-                    <label for="candidateStatusFilter">Candidate Status</label>
-                    <select id="candidateStatusFilter">
-                        <option value="All">All Seats</option>
-                        <option value="multi">2+ Candidates (Multi)</option>
-                        <option value="single">1 Candidate (Single)</option>
-                        <option value="gap">0 Candidates (Gap)</option>
-                    </select>
+                    <label>Candidate Status <span id="badgeCandidateStatus" class="ms-count-badge" style="display:none;">0</span></label>
+                    <div class="multi-select-dropdown" id="msCandidateStatus"></div>
                 </div>
 
                 <div class="filter-group">
-                    <label for="incumbentFilter">Incumbent Status</label>
-                    <select id="incumbentFilter">
-                        <option value="All">All Incumbents</option>
-                        <option value="inFinalList">⭐ In Final Candidate List</option>
-                        <option value="jsp">JSP Leaning / Ready to Meet</option>
-                        <option value="otherParty">Other Parties (BJP/RJD/JDU)</option>
-                    </select>
+                    <label>Incumbent Status <span id="badgeIncumbent" class="ms-count-badge" style="display:none;">0</span></label>
+                    <div class="multi-select-dropdown" id="msIncumbent"></div>
                 </div>
 
                 <div class="filter-group">
-                    <label for="zoneFilter">Zone</label>
-                    <select id="zoneFilter">
-                        <option value="All">All</option>
-                    </select>
+                    <label>Zone <span id="badgeZone" class="ms-count-badge" style="display:none;">0</span></label>
+                    <div class="multi-select-dropdown" id="msZone"></div>
                 </div>
 
                 <div class="filter-group">
-                    <label for="districtFilter">District</label>
-                    <select id="districtFilter">
-                        <option value="All">All</option>
-                    </select>
+                    <label>District <span id="badgeDistrict" class="ms-count-badge" style="display:none;">0</span></label>
+                    <div class="multi-select-dropdown" id="msDistrict"></div>
                 </div>
 
                 <div class="filter-group">
-                    <label for="pcFilter">PC</label>
-                    <select id="pcFilter">
-                        <option value="All">All</option>
-                    </select>
+                    <label>PC (Parliamentary) <span id="badgePC" class="ms-count-badge" style="display:none;">0</span></label>
+                    <div class="multi-select-dropdown" id="msPC"></div>
                 </div>
 
                 <div class="filter-group">
-                    <label for="acFilter">AC</label>
-                    <select id="acFilter">
-                        <option value="All">All</option>
-                    </select>
+                    <label>AC (Assembly) <span id="badgeAC" class="ms-count-badge" style="display:none;">0</span></label>
+                    <div class="multi-select-dropdown" id="msAC"></div>
                 </div>
 
                 <div class="filter-group">
-                    <label for="blockFilter">Block</label>
-                    <select id="blockFilter">
-                        <option value="All">All</option>
-                    </select>
+                    <label>Block <span id="badgeBlock" class="ms-count-badge" style="display:none;">0</span></label>
+                    <div class="multi-select-dropdown" id="msBlock"></div>
                 </div>
 
                 <div class="filter-group">
-                    <label for="reservationFilter">Reservation Status</label>
-                    <select id="reservationFilter">
-                        <option value="All">All</option>
-                    </select>
+                    <label>Reservation Status <span id="badgeReservation" class="ms-count-badge" style="display:none;">0</span></label>
+                    <div class="multi-select-dropdown" id="msReservation"></div>
                 </div>
             </div>
 
@@ -108,11 +86,11 @@
                     </svg>
                     Reset Filters
                 </button>
-                <button id="refreshBtn" class="refresh-btn" title="Refresh data from Google Sheets">
+                <button id="refreshBtn" class="refresh-btn" title="Sync live data from Google Sheets">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.05l5.67-5.67"/>
                     </svg>
-                    Refresh Data
+                    Sync Live Google Sheets
                 </button>
             </div>
         </aside>
@@ -136,9 +114,26 @@
                         <span>Filters</span>
                     </button>
                     <div class="header-titles">
-                        <h1 id="viewTitle">Candidate & Incumbent Overview</h1>
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <h1 id="viewTitle" style="margin: 0;">Candidate & Incumbent Overview</h1>
+                            <span id="syncStatusBadge" class="sync-badge">● Live Connected</span>
+                        </div>
                         <p class="header-subtitle" id="viewSubtitle">Comprehensive analysis of ZP Seats, Probable Candidates, Sitting Incumbents & Leadership</p>
                     </div>
+                </div>
+
+                <!-- Top Header Universal Search -->
+                <div class="header-universal-search">
+                    <div class="universal-search-box">
+                        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="topUniversalSearch" placeholder="🔍 Search Candidate, Chairman, Seat, Phone, Party (English / हिंदी)..." autocomplete="off">
+                        <span class="search-shortcut-hint" title="Press Ctrl+K to search">Ctrl K</span>
+                        <button id="clearTopSearch" class="clear-search-btn" title="Clear universal search">&times;</button>
+                    </div>
+                    <div id="universalSearchDropdown" class="universal-search-dropdown"></div>
                 </div>
                 
                 <!-- View Navigation Switcher -->
@@ -271,13 +266,50 @@
             </section>
 
             <!-- Seat-wise Candidates & Incumbent Table -->
-            <section class="table-section">
+            <section class="table-section" id="seatDirectorySection">
                 <div class="table-header-row">
                     <div class="table-title-area">
                         <h2>Seat-wise Candidate & Incumbent Directory</h2>
                         <span id="activeFilterBadge" class="active-filter-badge" style="display: none;"></span>
                     </div>
-                    <span id="resultCount" class="result-count"></span>
+                    <div class="table-header-controls">
+                        <!-- Density Toggle (Compact vs Full Profiles) -->
+                        <div class="view-density-toggle" id="viewDensityToggle">
+                            <button class="density-btn active" id="btnCompactView" title="Compact View: Names only">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                                </svg>
+                                <span>Compact</span>
+                            </button>
+                            <button class="density-btn" id="btnDetailedView" title="Full Profiles: Show contact, profession, remarks & sources directly">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="7" height="7"></rect>
+                                    <rect x="14" y="3" width="7" height="7"></rect>
+                                    <rect x="14" y="14" width="7" height="7"></rect>
+                                    <rect x="3" y="14" width="7" height="7"></rect>
+                                </svg>
+                                <span>Full Profiles</span>
+                            </button>
+                        </div>
+
+                        <span id="resultCount" class="result-count"></span>
+
+                        <!-- Fullscreen Toggle Button -->
+                        <button id="toggleFullscreenBtn" class="fullscreen-toggle-btn" title="Expand Full Screen with Complete Candidate Profiles (Esc to exit)">
+                            <svg class="fs-expand-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                            </svg>
+                            <svg class="fs-compress-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                                <path d="M4 14h6v6m10-10h-6V4m0 16v-6h6M4 4h6v6"></path>
+                            </svg>
+                            <span class="fs-btn-label">Expand Fullscreen / विस्तार</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="table-container">
                     <table id="candidateTable">
@@ -289,7 +321,7 @@
                                 <th style="width: 130px;">Block</th>
                                 <th style="width: 200px;">Sitting Incumbent ZP</th>
                                 <th style="width: 110px;">Candidates</th>
-                                <th>Probable Candidates <span class="table-header-hint">(Click name for full profile)</span></th>
+                                <th>Probable Candidates <span class="table-header-hint" id="tableHeaderHint">(Click name for full profile)</span></th>
                             </tr>
                         </thead>
                         <tbody id="candidateTableBody">
@@ -376,8 +408,8 @@
         </div>
     </div>
 
-    <!-- SheetJS for XLSX processing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- SheetJS for XLSX / CSV processing (Local with CDN fallback) -->
+    <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
     <script src="script.js"></script>
 </body>
 </html>
