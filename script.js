@@ -409,7 +409,7 @@ async function loadData(forceReload = false) {
 
         // Update Sync Status Badge
         if (syncBadge) {
-            syncBadge.innerHTML = `● Live Connected: ${candidatesData.length} Candidates (All 6 Zones)`;
+            syncBadge.innerHTML = `● Live Connected (All 6 Zones)`;
             syncBadge.classList.remove('offline');
         }
 
