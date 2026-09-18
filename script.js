@@ -10,6 +10,18 @@ let chairmanMap = new Map();  // district -> chairman object
 let runnerUpMap = new Map();  // seat -> runner up object
 let pkData = [];
 let allSeatNumbers = [];
+let currentActiveView = 'dashboard';
+
+// High-performance debounce utility for responsive UI
+function debounce(fn, delay = 120) {
+    let timer = null;
+    const debounced = function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+    debounced.cancel = () => clearTimeout(timer);
+    return debounced;
+}
 
 // Multi-Select Instances
 let msCandidateStatus, msIncumbent, msZone, msDistrict, msPC, msAC, msBlock, msReservation;
@@ -215,6 +227,40 @@ class MultiSelect {
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    updateTriggerAndBadge() {
+        if (!this.container) return;
+        const selectedArr = this.getSelected();
+        const hasSelection = selectedArr.length > 0;
+
+        if (this.badge) {
+            if (hasSelection) {
+                this.badge.textContent = selectedArr.length;
+                this.badge.style.display = 'inline-block';
+            } else {
+                this.badge.style.display = 'none';
+            }
+        }
+
+        let triggerText = this.placeholder;
+        if (hasSelection) {
+            if (selectedArr.length === 1) {
+                const opt = this.options.find(o => o.value === selectedArr[0]);
+                triggerText = opt ? opt.label : selectedArr[0];
+            } else if (selectedArr.length === this.options.length && this.options.length > 0) {
+                triggerText = `All (${selectedArr.length} Selected)`;
+            } else {
+                triggerText = `${selectedArr.length} Selected`;
+            }
+        }
+
+        const textEl = this.container.querySelector('.ms-trigger-text');
+        if (textEl) {
+            textEl.textContent = triggerText;
+            textEl.className = `ms-trigger-text ${hasSelection ? 'active-val' : 'placeholder'}`;
+        }
+        this.container.classList.toggle('has-selection', hasSelection);
+    }
+
     bindEvents() {
         if (!this.container) return;
 
@@ -253,35 +299,43 @@ class MultiSelect {
             if (optionItem) {
                 e.stopPropagation();
                 const val = optionItem.dataset.value;
-                if (this.selected.has(val)) {
-                    this.selected.delete(val);
-                } else {
+                const isNowSelected = !this.selected.has(val);
+                if (isNowSelected) {
                     this.selected.add(val);
+                } else {
+                    this.selected.delete(val);
                 }
-                this.render();
+                optionItem.classList.toggle('selected', isNowSelected);
+                const cb = optionItem.querySelector('.ms-checkbox');
+                if (cb) cb.checked = isNowSelected;
+                this.updateTriggerAndBadge();
                 if (this.onChange) this.onChange(this.getSelected());
                 return;
             }
         });
 
+        const debouncedMenuSearch = debounce((searchInput) => {
+            this.searchQuery = searchInput.value;
+            const filtered = this.options.filter(o => !this.searchQuery || String(o.label).toLowerCase().includes(this.searchQuery.toLowerCase()));
+            const list = this.container.querySelector('.ms-options-list');
+            if (list) {
+                list.innerHTML = filtered.length > 0 ? filtered.map(opt => {
+                    const isChecked = this.selected.has(opt.value);
+                    return `
+                        <li class="ms-option-item ${isChecked ? 'selected' : ''}" data-value="${this.escapeHtml(opt.value)}">
+                            <input type="checkbox" class="ms-checkbox" ${isChecked ? 'checked' : ''} />
+                            <span class="ms-option-label">${this.escapeHtml(opt.label)}</span>
+                            ${opt.count !== undefined ? `<span class="ms-option-count">${opt.count}</span>` : ''}
+                        </li>
+                    `;
+                }).join('') : '<li class="ms-empty-state">No matching options</li>';
+            }
+        }, 80);
+
         this.container.addEventListener('input', (e) => {
             const searchInput = e.target.closest('.ms-search-input');
             if (searchInput) {
-                this.searchQuery = searchInput.value;
-                const filtered = this.options.filter(o => !this.searchQuery || String(o.label).toLowerCase().includes(this.searchQuery.toLowerCase()));
-                const list = this.container.querySelector('.ms-options-list');
-                if (list) {
-                    list.innerHTML = filtered.length > 0 ? filtered.map(opt => {
-                        const isChecked = this.selected.has(opt.value);
-                        return `
-                            <li class="ms-option-item ${isChecked ? 'selected' : ''}" data-value="${this.escapeHtml(opt.value)}">
-                                <input type="checkbox" class="ms-checkbox" ${isChecked ? 'checked' : ''} />
-                                <span class="ms-option-label">${this.escapeHtml(opt.label)}</span>
-                                ${opt.count !== undefined ? `<span class="ms-option-count">${opt.count}</span>` : ''}
-                            </li>
-                        `;
-                    }).join('') : '<li class="ms-empty-state">No matching options</li>';
-                }
+                debouncedMenuSearch(searchInput);
             }
         });
     }
@@ -1049,9 +1103,10 @@ if (auditTypeFilter) {
     auditTypeFilter.addEventListener('change', renderAuditTable);
 }
 if (auditSearchInput) {
+    const debouncedAuditSearch = debounce(() => renderAuditTable(), 120);
     auditSearchInput.addEventListener('input', () => {
         if (clearAuditSearch) clearAuditSearch.style.display = auditSearchInput.value ? 'flex' : 'none';
-        renderAuditTable();
+        debouncedAuditSearch();
     });
 }
 if (clearAuditSearch) {
@@ -1136,6 +1191,8 @@ analyticsSubtabBtns.forEach(btn => {
 });
 
 function switchMainView(view) {
+    currentActiveView = view;
+
     // Reset top switcher buttons
     if (viewDashboardBtn) viewDashboardBtn.classList.toggle('active', view === 'dashboard');
     if (viewAnalyticsBtn) viewAnalyticsBtn.classList.toggle('active', view === 'analytics');
@@ -1160,6 +1217,7 @@ function switchMainView(view) {
     if (view === 'dashboard') {
         if (viewTitle) viewTitle.textContent = 'Candidate & Incumbent Overview';
         if (viewSubtitle) viewSubtitle.textContent = 'Comprehensive analysis of ZP Seats, Probable Candidates, Sitting Incumbents & Leadership';
+        renderDashboard();
     } else if (view === 'analytics') {
         if (viewTitle) viewTitle.textContent = 'Analytics & Demographics Hub';
         if (viewSubtitle) viewSubtitle.textContent = 'In-depth Caste Composition, Age Profiles, Gender Representation & Seat Readiness';
@@ -1167,7 +1225,7 @@ function switchMainView(view) {
     } else if (view === 'report') {
         if (viewTitle) viewTitle.textContent = 'Executive Summary Report';
         if (viewSubtitle) viewSubtitle.textContent = 'Numerical State & District Breakdown | Social Category & Recommendation Channel Analysis';
-        renderExecutiveReport(candidatesData);
+        renderExecutiveReport(getFilteredCandidates(false));
     } else if (view === 'gap') {
         if (viewTitle) viewTitle.textContent = 'ZP Seat & Candidate Gap Report';
         if (viewSubtitle) viewSubtitle.textContent = 'Zero-Candidate Seat Gaps | Mandatory Profile Completeness (Contact No, Category, Caste, Age, Brief Profile)';
@@ -1942,14 +2000,24 @@ function executeUniversalSearch(query) {
     autoDismissMobileDrawer();
 }
 
+let debouncedUniversalSuggest = null;
+let debouncedSeatSuggest = null;
+
 // Top Universal Search Listeners (Middle Bar Only)
 if (topUniversalSearch) {
+    debouncedUniversalSuggest = debounce((query) => {
+        if (!query) return;
+        const results = buildUniversalSuggestions(query);
+        renderUniversalDropdown(results, query, universalSearchDropdown);
+    }, 120);
+
     topUniversalSearch.addEventListener('input', (e) => {
         const query = e.target.value.trim();
         const box = topUniversalSearch.closest('.universal-search-box');
         if (box) box.classList.toggle('has-value', Boolean(query));
 
         if (!query) {
+            if (debouncedUniversalSuggest) debouncedUniversalSuggest.cancel();
             if (universalSearchDropdown) universalSearchDropdown.classList.remove('show');
             if (universalSearchQuery) {
                 universalSearchQuery = '';
@@ -1957,15 +2025,16 @@ if (topUniversalSearch) {
             }
             return;
         }
-        const results = buildUniversalSuggestions(query);
-        renderUniversalDropdown(results, query, universalSearchDropdown);
+        debouncedUniversalSuggest(query);
     });
 
     topUniversalSearch.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
+            if (debouncedUniversalSuggest) debouncedUniversalSuggest.cancel();
             executeUniversalSearch(topUniversalSearch.value);
         }
         if (e.key === 'Escape') {
+            if (debouncedUniversalSuggest) debouncedUniversalSuggest.cancel();
             if (universalSearchDropdown) universalSearchDropdown.classList.remove('show');
             topUniversalSearch.blur();
         }
@@ -1974,6 +2043,7 @@ if (topUniversalSearch) {
 
 if (clearTopSearch) {
     clearTopSearch.addEventListener('click', () => {
+        if (debouncedUniversalSuggest) debouncedUniversalSuggest.cancel();
         executeUniversalSearch('');
     });
 }
@@ -1982,6 +2052,7 @@ if (universalSearchDropdown) {
     universalSearchDropdown.addEventListener('click', (e) => {
         const item = e.target.closest('.us-item');
         if (!item) return;
+        if (debouncedUniversalSuggest) debouncedUniversalSuggest.cancel();
         const action = item.dataset.action;
         if (action === 'seat') {
             const seat = item.dataset.seat;
@@ -1997,21 +2068,7 @@ if (universalSearchDropdown) {
 
 // --- LEFT PANE: ZP SEAT SEARCH ONLY ---
 if (seatSearch) {
-    seatSearch.addEventListener('input', (e) => {
-        const query = e.target.value.trim().toLowerCase();
-        const wrapper = seatSearch.closest('.search-input-wrapper');
-        if (wrapper) wrapper.classList.toggle('has-value', Boolean(query));
-
-        if (!query) {
-            seatSuggestions.classList.remove('show');
-            seatSuggestions.innerHTML = '';
-            if (selectedSeatNumber) {
-                selectedSeatNumber = '';
-                renderDashboard();
-            }
-            return;
-        }
-
+    debouncedSeatSuggest = debounce((query) => {
         const matches = allSeatNumbers.filter(s => s.toLowerCase().includes(query)).slice(0, 8);
 
         if (matches.length > 0) {
@@ -2027,10 +2084,30 @@ if (seatSearch) {
             seatSuggestions.innerHTML = '<li class="no-match">No matching ZP seat found</li>';
             seatSuggestions.classList.add('show');
         }
+    }, 100);
+
+    seatSearch.addEventListener('input', (e) => {
+        const query = e.target.value.trim().toLowerCase();
+        const wrapper = seatSearch.closest('.search-input-wrapper');
+        if (wrapper) wrapper.classList.toggle('has-value', Boolean(query));
+
+        if (!query) {
+            if (debouncedSeatSuggest) debouncedSeatSuggest.cancel();
+            seatSuggestions.classList.remove('show');
+            seatSuggestions.innerHTML = '';
+            if (selectedSeatNumber) {
+                selectedSeatNumber = '';
+                renderDashboard();
+            }
+            return;
+        }
+
+        debouncedSeatSuggest(query);
     });
 
     seatSearch.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
+            if (debouncedSeatSuggest) debouncedSeatSuggest.cancel();
             const query = seatSearch.value.trim();
             if (query) {
                 const exactMatch = allSeatNumbers.find(s => s.toLowerCase() === query.toLowerCase());
@@ -2280,14 +2357,24 @@ function renderDashboard() {
     const geoFiltered = getFilteredCandidates(false);
     const tableFiltered = getFilteredCandidates(true);
 
+    // Global KPIs and Mobile Filter badge always update
     renderKPIs(geoFiltered);
-    renderBifurcation(geoFiltered);
-    renderExecutiveReport(geoFiltered);
-    renderGapReport();
-    renderAnalyticsHub(geoFiltered);
-    renderSeatTable(tableFiltered);
-    renderReservationBreakdown(geoFiltered);
     updateMobileFilterBadge();
+
+    // View Isolation: Only execute active view components
+    if (currentActiveView === 'dashboard') {
+        renderBifurcation(geoFiltered);
+        renderReservationBreakdown(geoFiltered);
+        renderSeatTable(tableFiltered);
+    } else if (currentActiveView === 'analytics') {
+        renderAnalyticsHub(geoFiltered);
+    } else if (currentActiveView === 'report') {
+        renderExecutiveReport(geoFiltered);
+    } else if (currentActiveView === 'gap') {
+        renderGapReport();
+    } else if (currentActiveView === 'audit') {
+        if (typeof renderAuditTable === 'function') renderAuditTable();
+    }
 }
 
 // ===========================================
@@ -2570,33 +2657,24 @@ function renderBifurcation(data) {
         }
     });
 
-    zoneTableBody.innerHTML = '';
     const sortedZones = Array.from(zoneStats.keys()).sort();
+    const zoneRows = [];
     sortedZones.forEach(zone => {
         const z = zoneStats.get(zone);
         const gap = z.seats.size - z.seatsWithCandidate.size;
-        const tr = document.createElement('tr');
-        tr.classList.add('bif-row');
-        tr.innerHTML = `
-            <td><strong>${zone}</strong></td>
-            <td>${z.districts.size}</td>
-            <td><strong>${z.seats.size}</strong></td>
-            <td><span class="count-badge count-identified">${z.seatsWithCandidate.size}</span></td>
-            <td><span class="count-badge count-multi-pill">${z.seatsWith2Plus.size}</span></td>
-            <td><span class="gap-badge ${gap > 0 ? 'has-gap' : 'no-gap'}">${gap}</span></td>
-            <td><strong>${z.totalCandidates}</strong></td>
-        `;
-        tr.addEventListener('click', () => {
-            if (msZone) msZone.setSelected([zone]);
-            selectedSeatNumber = '';
-            universalSearchQuery = '';
-            if (seatSearch) seatSearch.value = '';
-            if (topUniversalSearch) topUniversalSearch.value = '';
-            updateFilters('zone');
-            renderDashboard();
-        });
-        zoneTableBody.appendChild(tr);
+        zoneRows.push(`
+            <tr class="bif-row" data-zone="${escapeHtml(zone)}" style="cursor: pointer;">
+                <td><strong>${escapeHtml(zone)}</strong></td>
+                <td>${z.districts.size}</td>
+                <td><strong>${z.seats.size}</strong></td>
+                <td><span class="count-badge count-identified">${z.seatsWithCandidate.size}</span></td>
+                <td><span class="count-badge count-multi-pill">${z.seatsWith2Plus.size}</span></td>
+                <td><span class="gap-badge ${gap > 0 ? 'has-gap' : 'no-gap'}">${gap}</span></td>
+                <td><strong>${z.totalCandidates}</strong></td>
+            </tr>
+        `);
     });
+    zoneTableBody.innerHTML = zoneRows.join('');
 
     // --- District-wise ---
     const districtStats = new Map();
@@ -2640,30 +2718,59 @@ function renderBifurcation(data) {
         }
     });
 
-    districtTableBody.innerHTML = '';
     const sortedDistricts = Array.from(districtStats.keys()).sort();
+    const districtRows = [];
     sortedDistricts.forEach(district => {
         const d = districtStats.get(district);
         const gap = d.seats.size - d.seatsWithCandidate.size;
-        const tr = document.createElement('tr');
-        tr.classList.add('bif-row');
-        tr.innerHTML = `
-            <td><strong>${district}</strong></td>
-            <td>${d.zone}</td>
-            <td>${d.chairman ? `<span class="chairman-badge-sm">👑 ${d.chairman}</span>` : '-'}</td>
-            <td>${d.viceChairman ? `<span class="vice-chairman-badge-sm">${d.viceChairman}</span>` : '-'}</td>
-            <td><strong>${d.seats.size}</strong></td>
-            <td><span class="count-badge count-identified">${d.seatsWithCandidate.size}</span></td>
-            <td><span class="count-badge count-multi-pill">${d.seatsWith2Plus.size}</span></td>
-            <td><span class="gap-badge ${gap > 0 ? 'has-gap' : 'no-gap'}">${gap}</span></td>
-            <td><strong>${d.totalCandidates}</strong></td>
-        `;
-        tr.addEventListener('click', () => {
-            if (d.zone && d.zone !== 'undefined' && msZone) {
-                msZone.setSelected([d.zone]);
+        districtRows.push(`
+            <tr class="bif-row" data-district="${escapeHtml(district)}" data-zone="${escapeHtml(d.zone || '')}" style="cursor: pointer;">
+                <td><strong>${escapeHtml(district)}</strong></td>
+                <td>${escapeHtml(d.zone || '-')}</td>
+                <td>${d.chairman ? `<span class="chairman-badge-sm">👑 ${escapeHtml(d.chairman)}</span>` : '-'}</td>
+                <td>${d.viceChairman ? `<span class="vice-chairman-badge-sm">${escapeHtml(d.viceChairman)}</span>` : '-'}</td>
+                <td><strong>${d.seats.size}</strong></td>
+                <td><span class="count-badge count-identified">${d.seatsWithCandidate.size}</span></td>
+                <td><span class="count-badge count-multi-pill">${d.seatsWith2Plus.size}</span></td>
+                <td><span class="gap-badge ${gap > 0 ? 'has-gap' : 'no-gap'}">${gap}</span></td>
+                <td><strong>${d.totalCandidates}</strong></td>
+            </tr>
+        `);
+    });
+    districtTableBody.innerHTML = districtRows.join('');
+    initBifurcationDelegation();
+}
+
+function initBifurcationDelegation() {
+    if (zoneTableBody && !zoneTableBody._delegated) {
+        zoneTableBody._delegated = true;
+        zoneTableBody.addEventListener('click', (e) => {
+            const row = e.target.closest('tr[data-zone]');
+            if (!row) return;
+            const zone = row.dataset.zone;
+            if (!zone) return;
+            if (msZone) msZone.setSelected([zone]);
+            selectedSeatNumber = '';
+            universalSearchQuery = '';
+            if (seatSearch) seatSearch.value = '';
+            if (topUniversalSearch) topUniversalSearch.value = '';
+            updateFilters('zone');
+            renderDashboard();
+        });
+    }
+
+    if (districtTableBody && !districtTableBody._delegated) {
+        districtTableBody._delegated = true;
+        districtTableBody.addEventListener('click', (e) => {
+            const row = e.target.closest('tr[data-district]');
+            if (!row) return;
+            const district = row.dataset.district;
+            const zone = row.dataset.zone;
+            if (zone && zone !== 'undefined' && msZone) {
+                msZone.setSelected([zone]);
                 updateFilters('zone');
             }
-            if (msDistrict) msDistrict.setSelected([district]);
+            if (msDistrict && district) msDistrict.setSelected([district]);
             selectedSeatNumber = '';
             universalSearchQuery = '';
             if (seatSearch) seatSearch.value = '';
@@ -2671,8 +2778,7 @@ function renderBifurcation(data) {
             updateFilters('district');
             renderDashboard();
         });
-        districtTableBody.appendChild(tr);
-    });
+    }
 }
 
 // Helper to format party badge class
@@ -2743,11 +2849,11 @@ function renderSeatTable(data) {
         seatsMap.get(seat).push(row);
     });
 
-    const sortedSeats = Array.from(seatsMap.keys()).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-    );
+    const seatCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    const sortedSeats = Array.from(seatsMap.keys()).sort(seatCollator.compare);
 
     let totalCandidateCount = 0;
+    const trList = [];
 
     sortedSeats.forEach(seat => {
         const rowsForSeat = seatsMap.get(seat);
@@ -2769,11 +2875,11 @@ function renderSeatTable(data) {
             incumbentDisplay = `
                 <div class="incumbent-cell-content" title="Sitting Incumbent (2021)">
                     <div class="inc-name-row">
-                        <span class="inc-name">${inc.incumbentName}</span>
-                        ${inc.party ? `<span class="party-badge ${partyClass}">${inc.party}</span>` : ''}
+                        <span class="inc-name">${escapeHtml(inc.incumbentName)}</span>
+                        ${inc.party ? `<span class="party-badge ${partyClass}">${escapeHtml(inc.party)}</span>` : ''}
                         ${isShortlisted ? `<span class="shortlisted-pill" title="Shortlisted in JSP Final Candidate List">⭐ Shortlisted</span>` : ''}
                     </div>
-                    ${inc.meetingStatus && inc.meetingStatus !== 'NA' ? `<span class="inc-status-tag status-${inc.meetingStatus.toLowerCase().replace(/\s+/g, '-')}">${inc.meetingStatus}</span>` : ''}
+                    ${inc.meetingStatus && inc.meetingStatus !== 'NA' ? `<span class="inc-status-tag status-${inc.meetingStatus.toLowerCase().replace(/\s+/g, '-')}">${escapeHtml(inc.meetingStatus)}</span>` : ''}
                 </div>
             `;
         }
@@ -2802,21 +2908,21 @@ function renderSeatTable(data) {
                     totalCandidateCount++;
 
                     return `
-                        <div class="detailed-candidate-card" data-seat="${seat}" data-idx="${idx}" title="Click to view complete details of ${name}">
+                        <div class="detailed-candidate-card" data-seat="${escapeHtml(seat)}" data-idx="${idx}" title="Click to view complete details of ${escapeHtml(name)}">
                             <div class="d-cand-header">
                                 <div class="d-cand-title">
                                     <span class="d-cand-num">#${idx + 1}</span>
-                                    <strong class="d-cand-name">${name}</strong>
-                                    ${phone && phone !== '-' ? `<a href="tel:${extractPrimaryPhone(phone)}" class="d-cand-phone" onclick="event.stopPropagation();" title="Call ${name}">📞 ${phone.replace(/[\r\n]+/g, ' / ')}</a>` : ''}
+                                    <strong class="d-cand-name">${escapeHtml(name)}</strong>
+                                    ${phone && phone !== '-' ? `<a href="tel:${extractPrimaryPhone(phone)}" class="d-cand-phone" onclick="event.stopPropagation();" title="Call ${escapeHtml(name)}">📞 ${escapeHtml(phone.replace(/[\r\n]+/g, ' / '))}</a>` : ''}
                                 </div>
                                 <div class="d-cand-badges">
-                                    ${jsDesig && jsDesig !== '-' ? `<span class="d-badge d-badge-designation" title="JS Designation">${jsDesig}</span>` : ''}
-                                    ${source && source !== '-' ? `<span class="d-badge d-badge-source" title="Recommendation Source">${source}</span>` : ''}
+                                    ${jsDesig && jsDesig !== '-' ? `<span class="d-badge d-badge-designation" title="JS Designation">${escapeHtml(jsDesig)}</span>` : ''}
+                                    ${source && source !== '-' ? `<span class="d-badge d-badge-source" title="Recommendation Source">${escapeHtml(source)}</span>` : ''}
                                 </div>
                             </div>
                             <div class="d-cand-body">
-                                ${profile && profile !== '-' ? `<div class="d-cand-profile"><span class="d-lbl">Profile:</span> ${profile}</div>` : ''}
-                                ${remarks && remarks !== '-' ? `<div class="d-cand-remarks"><span class="d-lbl">Remarks:</span> ${remarks}</div>` : ''}
+                                ${profile && profile !== '-' ? `<div class="d-cand-profile"><span class="d-lbl">Profile:</span> ${escapeHtml(profile)}</div>` : ''}
+                                ${remarks && remarks !== '-' ? `<div class="d-cand-remarks"><span class="d-lbl">Remarks:</span> ${escapeHtml(remarks)}</div>` : ''}
                             </div>
                         </div>
                     `;
@@ -2837,12 +2943,9 @@ function renderSeatTable(data) {
                     const distinguishHint = isDup ? (caste && caste !== '-' ? ` (${caste})` : (phone && phone !== '-' ? ` (${phone.slice(-4)})` : ` (#${idx + 1})`)) : '';
 
                     totalCandidateCount++;
-                    return `<span class="candidate-tag" data-seat="${seat}" data-idx="${idx}" title="Click to view full details of ${name}${caste ? ' • Caste: ' + caste : ''}${phone ? ' • 📞 ' + phone : ''}">
+                    return `<span class="candidate-tag" data-seat="${escapeHtml(seat)}" data-idx="${idx}" title="Click to view full details of ${escapeHtml(name)}${caste ? ' • Caste: ' + escapeHtml(caste) : ''}${phone ? ' • 📞 ' + escapeHtml(phone) : ''}">
                         <span class="candidate-num">${idx + 1}</span>
-                        <span class="candidate-name-text">${name}${distinguishHint ? `<span class="cand-distinguish-hint" style="font-weight: 500; opacity: 0.85; font-size: 0.82em; margin-left: 3px; color: var(--accent-light, #38bdf8);">${distinguishHint}</span>` : ''}</span>
-                        <svg class="candidate-arrow-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="9 18 15 12 9 6"></polyline>
-                        </svg>
+                        <span class="candidate-name-text">${escapeHtml(name)}${distinguishHint ? `<span class="cand-distinguish-hint" style="font-weight: 500; opacity: 0.85; font-size: 0.82em; margin-left: 3px; color: var(--accent-light, #38bdf8);">${escapeHtml(distinguishHint)}</span>` : ''}</span>
                     </span>`;
                 }).join('');
             }
@@ -2850,34 +2953,44 @@ function renderSeatTable(data) {
             candidateTags = '<span class="no-candidate-text">⚠️ No candidate identified yet (Gap)</span>';
         }
 
-        const tr = document.createElement('tr');
-        if (selectedSeatNumber || universalSearchQuery) tr.classList.add('search-highlight');
-        if (candCount === 0) tr.classList.add('no-candidate-row');
-        if (candCount >= 2) tr.classList.add('multi-candidate-row');
+        let rowClass = '';
+        if (selectedSeatNumber || universalSearchQuery) rowClass += ' search-highlight';
+        if (candCount === 0) rowClass += ' no-candidate-row';
+        if (candCount >= 2) rowClass += ' multi-candidate-row';
 
-        tr.innerHTML = `
-            <td><strong class="seat-title">${seat}</strong></td>
-            <td>${reservationStatus ? `<span class="reservation-badge ${badgeClass}">${reservationStatus}</span>` : '-'}</td>
-            <td>${district || '-'}</td>
-            <td>${block || '-'}</td>
-            <td class="incumbent-td">${incumbentDisplay}</td>
-            <td>${countPill}</td>
-            <td class="candidates-cell ${isDetailedProfileView ? 'detailed-mode' : ''}">${candidateTags}</td>
-        `;
-
-        candidateTableBody.appendChild(tr);
+        trList.push(`
+            <tr class="${rowClass.trim()}">
+                <td><strong class="seat-title">${escapeHtml(seat)}</strong></td>
+                <td>${reservationStatus ? `<span class="reservation-badge ${badgeClass}">${escapeHtml(reservationStatus)}</span>` : '-'}</td>
+                <td>${escapeHtml(district) || '-'}</td>
+                <td>${escapeHtml(block) || '-'}</td>
+                <td class="incumbent-td">${incumbentDisplay}</td>
+                <td>${countPill}</td>
+                <td class="candidates-cell ${isDetailedProfileView ? 'detailed-mode' : ''}">${candidateTags}</td>
+            </tr>
+        `);
     });
 
+    candidateTableBody.innerHTML = trList.join('');
     resultCount.textContent = `${totalCandidateCount} candidate${totalCandidateCount !== 1 ? 's' : ''} in ${sortedSeats.length} seat${sortedSeats.length !== 1 ? 's' : ''}`;
+    initCandidateTableDelegation();
+}
 
-    // Attach click handlers to candidate tags and detailed cards
-    candidateTableBody.querySelectorAll('.candidate-tag, .detailed-candidate-card').forEach(tag => {
-        tag.addEventListener('click', (e) => {
+function initCandidateTableDelegation() {
+    if (!candidateTableBody || candidateTableBody._delegationInitialized) return;
+    candidateTableBody._delegationInitialized = true;
+
+    candidateTableBody.addEventListener('click', (e) => {
+        if (e.target.closest('a[href^="tel:"]')) return;
+        const tag = e.target.closest('.candidate-tag, .detailed-candidate-card');
+        if (tag) {
             e.stopPropagation();
             const seatNum = tag.dataset.seat;
-            const idx = parseInt(tag.dataset.idx);
-            showCandidateDetail(seatNum, idx);
-        });
+            const idx = parseInt(tag.dataset.idx, 10);
+            if (seatNum && !isNaN(idx)) {
+                showCandidateDetail(seatNum, idx);
+            }
+        }
     });
 }
 
@@ -2896,16 +3009,16 @@ function showCandidateDetail(seatNum, idx) {
     const seatInfo = rowsForSeat[0] || {};
     const inc = incumbentMap.get(seatNum);
 
-    const name = row['Probable ZP Candidate Name'] || '-';
-    const contact = row['Contact No'] || '-';
-    const category = row['Category'] || '-';
-    const caste = row['Caste'] || '-';
-    const age = row['Age'] || '-';
-    const profile = row['Brief Profile'] || '-';
-    const jsDesignation = row['JS Designation'] || '-';
-    const recommendation = row['Recommendation Source Categories'] || '-';
-    const remarks = row['Remarks'] || '-';
-    const pkFeedback = row['PK Feedback'] || '-';
+    const name = String(row['Probable ZP Candidate Name'] || '').trim() || '-';
+    const contact = String(row['Contact No'] || '').trim() || '-';
+    const category = String(row['Category'] || '').trim() || '-';
+    const caste = String(row['Caste'] || '').trim() || '-';
+    const age = String(row['Age'] || '').trim() || '-';
+    const profile = String(row['Brief Profile'] || '').trim() || '-';
+    const jsDesignation = String(row['JS Designation'] || '').trim() || '-';
+    const recommendation = String(row['Recommendation Source Categories'] || '').trim() || '-';
+    const remarks = String(row['Remarks'] || '').trim() || '-';
+    const pkFeedback = String(row['PK Feedback'] || '').trim() || '-';
     const reservation = String(seatInfo['Seat Reservation Status'] || '').trim();
     const zone = row['Zone'] || seatInfo['Zone'] || '-';
     const district = row['District'] || seatInfo['District'] || '-';
@@ -3165,18 +3278,30 @@ function renderKPIs(filteredCandidates) {
 
 function animateKPI(element, targetValue) {
     if (!element) return;
-    const currentValue = parseInt(element.textContent) || 0;
-    if (currentValue === targetValue) return;
-    const duration = 400;
+    if (element._rafId) {
+        cancelAnimationFrame(element._rafId);
+        element._rafId = null;
+    }
+    const currentValue = parseInt(String(element.textContent).replace(/,/g, ''), 10) || 0;
+    if (currentValue === targetValue) {
+        element.textContent = targetValue.toLocaleString();
+        return;
+    }
+    const duration = 220;
     const startTime = performance.now();
     function step(timestamp) {
         const elapsed = timestamp - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const eased = 1 - Math.pow(1 - progress, 3);
-        element.textContent = Math.round(currentValue + (targetValue - currentValue) * eased);
-        if (progress < 1) requestAnimationFrame(step);
+        const val = Math.round(currentValue + (targetValue - currentValue) * eased);
+        element.textContent = val.toLocaleString();
+        if (progress < 1) {
+            element._rafId = requestAnimationFrame(step);
+        } else {
+            element._rafId = null;
+        }
     }
-    requestAnimationFrame(step);
+    element._rafId = requestAnimationFrame(step);
 }
 
 // ===========================================
@@ -3521,7 +3646,8 @@ function renderSeatCasteTable() {
 const casteSeatSearchInputEl = document.getElementById('casteSeatSearchInput') || document.getElementById('seatCasteSearch');
 const casteCategorySelectEl = document.getElementById('casteCategorySelect');
 if (casteSeatSearchInputEl) {
-    casteSeatSearchInputEl.addEventListener('input', () => renderSeatCasteTable());
+    const debouncedCasteSearch = debounce(() => renderSeatCasteTable(), 120);
+    casteSeatSearchInputEl.addEventListener('input', debouncedCasteSearch);
 }
 if (casteCategorySelectEl) {
     casteCategorySelectEl.addEventListener('change', () => renderSeatCasteTable());
@@ -4745,9 +4871,10 @@ function initGapReportEvents() {
     }
 
     if (gapSearchInput) {
+        const debouncedGapSearch = debounce(() => filterAndRenderGapTable(), 120);
         gapSearchInput.addEventListener('input', (e) => {
             gapCurrentSearch = e.target.value.trim().toLowerCase();
-            filterAndRenderGapTable();
+            debouncedGapSearch();
         });
     }
 
