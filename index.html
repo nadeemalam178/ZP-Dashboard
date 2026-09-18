@@ -2,13 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ZP Candidate & Incumbent Dashboard</title>
     <meta name="description" content="Zila Parishad Candidate & Incumbent Dashboard — zone & district bifurcation, search by seat, incumbent ZP integration, ZP Chairman data, and candidate profiles.">
+    <meta name="theme-color" content="#070b14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=4.7">
 </head>
 <body>
     <div class="dashboard-container">
@@ -17,6 +21,7 @@
 
         <!-- Sidebar -->
         <aside class="sidebar" id="mainSidebar">
+            <div class="mobile-sheet-handle"></div>
             <div class="sidebar-header">
                 <h2>ZP Dashboard</h2>
                 <button id="sidebarCloseBtn" class="sidebar-close-btn" title="Close Filters">&times;</button>
@@ -92,6 +97,9 @@
                     </svg>
                     Sync Live Google Sheets
                 </button>
+                <button id="mobApplyFiltersBtn" class="mob-apply-btn" title="Apply filters and view results">
+                    ✓ Apply Filters & View
+                </button>
             </div>
         </aside>
 
@@ -147,6 +155,14 @@
                         </svg>
                         Main Dashboard
                     </button>
+                    <button id="viewAnalyticsBtn" class="view-switch-btn" data-view="analytics">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                        Analytics Hub
+                    </button>
                     <button id="viewReportBtn" class="view-switch-btn" data-view="report">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -156,6 +172,24 @@
                             <polyline points="10 9 9 9 8 9"></polyline>
                         </svg>
                         Executive Report
+                    </button>
+                    <button id="viewGapBtn" class="view-switch-btn" data-view="gap">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        Gap Report
+                        <span id="gapBadgeCount" class="audit-badge-pill" style="background:#dc2626; color:#fff;" title="Zero Candidate Gaps">0</span>
+                    </button>
+                    <button id="viewAuditBtn" class="view-switch-btn" data-view="audit">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        Data Audit & Errors
+                        <span id="auditBadgeCount" class="audit-badge-pill" title="Discrepancies found across sheets">0</span>
                     </button>
                 </div>
 
@@ -171,42 +205,84 @@
                 <div class="kpi-card" id="card-total-seats" title="Click to show all seats">
                     <div class="kpi-header">
                         <h3>Total ZP Seats</h3>
-                        <span class="kpi-icon">🏛️</span>
+                        <div class="kpi-icon-badge kpi-badge-indigo">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 2 2 7h20L12 2z"/>
+                            </svg>
+                        </div>
                     </div>
                     <p id="kpi-seats" class="kpi-value">-</p>
-                    <span class="kpi-subtext">Total constituencies</span>
+                    <div class="kpi-meta-row">
+                        <span class="kpi-chip kpi-chip-indigo">9 Zones</span>
+                        <span class="kpi-subtext">Total constituencies</span>
+                    </div>
                 </div>
                 <div class="kpi-card" id="card-seats-identified" title="Click to filter seats with candidates">
                     <div class="kpi-header">
                         <h3>Seats with Candidates</h3>
-                        <span class="kpi-icon">✅</span>
+                        <div class="kpi-icon-badge kpi-badge-emerald">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                <path d="m9 12 2 2 4-4"/>
+                            </svg>
+                        </div>
                     </div>
                     <p id="kpi-unique" class="kpi-value">-</p>
-                    <span class="kpi-subtext">At least 1 candidate</span>
+                    <div class="kpi-meta-row">
+                        <span class="kpi-chip kpi-chip-emerald" id="kpi-chip-coverage">Coverage</span>
+                        <span class="kpi-subtext">At least 1 candidate</span>
+                    </div>
                 </div>
                 <div class="kpi-card highlight-card" id="card-multi-candidates" title="Click to filter seats with 2+ candidates">
                     <div class="kpi-header">
                         <h3>Seats with 2+ Candidates</h3>
-                        <span class="kpi-icon">👥</span>
+                        <div class="kpi-icon-badge kpi-badge-blue">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </div>
                     </div>
                     <p id="kpi-multi" class="kpi-value">-</p>
-                    <span class="kpi-subtext">Multiple probable candidates</span>
+                    <div class="kpi-meta-row">
+                        <span class="kpi-chip kpi-chip-blue" id="kpi-chip-multi">Target Met</span>
+                        <span class="kpi-subtext">Multiple probable candidates</span>
+                    </div>
                 </div>
                 <div class="kpi-card gap-card" id="card-gap-seats" title="Click to filter gap seats">
                     <div class="kpi-header">
                         <h3>Gap (Not Identified)</h3>
-                        <span class="kpi-icon">⚠️</span>
+                        <div class="kpi-icon-badge kpi-badge-rose">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                        </div>
                     </div>
                     <p id="kpi-gap" class="kpi-value">-</p>
-                    <span class="kpi-subtext">0 candidates identified</span>
+                    <div class="kpi-meta-row">
+                        <span class="kpi-chip kpi-chip-rose" id="kpi-chip-gap">Attention</span>
+                        <span class="kpi-subtext">0 candidates identified</span>
+                    </div>
                 </div>
                 <div class="kpi-card" id="card-total-candidates">
                     <div class="kpi-header">
                         <h3>Total Candidates</h3>
-                        <span class="kpi-icon">📋</span>
+                        <div class="kpi-icon-badge kpi-badge-purple">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                <path d="M7 15h10M7 9h2M13 9h4"/>
+                            </svg>
+                        </div>
                     </div>
                     <p id="kpi-total" class="kpi-value">-</p>
-                    <span class="kpi-subtext">Total candidate profiles</span>
+                    <div class="kpi-meta-row">
+                        <span class="kpi-chip kpi-chip-purple">~2.5 / Seat</span>
+                        <span class="kpi-subtext">Total candidate profiles</span>
+                    </div>
                 </div>
             </section>
 
@@ -333,7 +409,271 @@
         </div>
         <!-- END VIEW 1: MAIN DASHBOARD VIEW -->
 
-        <!-- VIEW 2: EXECUTIVE REPORT VIEW (Separate dedicated 1-page section) -->
+        <!-- VIEW 2: ANALYTICS & DEMOGRAPHICS HUB -->
+        <div id="analyticsViewContainer" class="view-panel">
+            <section class="analytics-hub-section">
+                <!-- Analytics Hub Top Header Banner -->
+                <div class="analytics-header-banner">
+                    <div class="analytics-title-box">
+                        <h2>Analytics & Demographics Intelligence</h2>
+                        <p class="analytics-subtitle">Caste Composition, Age Histograms, Gender Ratio, Seat Readiness & Incumbent Dynamics</p>
+                    </div>
+                    <div class="analytics-quick-stats" id="analyticsQuickStats">
+                        <!-- Filled dynamically: Total Candidates, Analyzed Seats, Average Age, % Female -->
+                    </div>
+                </div>
+
+                <!-- Sub-Tabs Navigation Bar -->
+                <div class="analytics-subtabs-nav" id="analyticsSubtabsNav">
+                    <button class="analytics-subtab-btn active" data-subtab="caste">
+                        <span class="subtab-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </span>
+                        <span class="subtab-label">Caste & Category</span>
+                    </button>
+                    <button class="analytics-subtab-btn" data-subtab="age">
+                        <span class="subtab-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </span>
+                        <span class="subtab-label">Age & Youth</span>
+                    </button>
+                    <button class="analytics-subtab-btn" data-subtab="gender">
+                        <span class="subtab-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path>
+                                <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path>
+                                <path d="M7 21h10"></path>
+                                <path d="M12 3v18"></path>
+                                <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path>
+                            </svg>
+                        </span>
+                        <span class="subtab-label">Gender Balance</span>
+                    </button>
+                    <button class="analytics-subtab-btn" data-subtab="readiness">
+                        <span class="subtab-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <circle cx="12" cy="12" r="6"></circle>
+                                <circle cx="12" cy="12" r="2"></circle>
+                            </svg>
+                        </span>
+                        <span class="subtab-label">Seat Readiness</span>
+                    </button>
+                    <button class="analytics-subtab-btn" data-subtab="background">
+                        <span class="subtab-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="20" height="14" x="2" y="7" rx="2" ry="2"></rect>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                            </svg>
+                        </span>
+                        <span class="subtab-label">Incumbents & Sources</span>
+                    </button>
+                </div>
+
+                <!-- SUB-TAB 1: CASTE & CATEGORY -->
+                <div id="subtab-caste" class="analytics-subtab-panel active">
+                    <div class="analytics-cards-grid">
+                        <div class="analytics-card flex-2">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Top 15 Castes (Statewide Distribution)</h3>
+                                    <span class="badge-sub">Ranked by volume of identified candidates</span>
+                                </div>
+                                <span class="card-tag">Community Share</span>
+                            </div>
+                            <div class="caste-chart-container" id="topCastesChart"></div>
+                        </div>
+                        <div class="analytics-card flex-1">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Social Category Share</h3>
+                                    <span class="badge-sub">OBC, EBC, General, SC, ST</span>
+                                </div>
+                                <span class="card-tag">Reservation Group</span>
+                            </div>
+                            <div class="category-cards-list" id="categoryShareCards"></div>
+                        </div>
+                    </div>
+
+                    <!-- Seat-Wise Caste Explorer -->
+                    <div class="analytics-card mt-4">
+                        <div class="analytics-card-header flex-between flex-wrap gap-2">
+                            <div>
+                                <h3>Seat-Wise Caste Composition Explorer</h3>
+                                <span class="badge-sub">Search seat, district, or caste to review candidate community combinations</span>
+                            </div>
+                            <div class="caste-search-box">
+                                <input type="text" id="casteSeatSearchInput" placeholder="Filter Seat, District, Caste (e.g. Yadav, Raxaul, Kurmi)..." class="mini-search-input">
+                            </div>
+                        </div>
+                        <div class="analytics-table-wrapper">
+                            <table class="analytics-table" id="seatCasteTable">
+                                <thead>
+                                    <tr>
+                                        <th>ZP Seat</th>
+                                        <th>Zone / District</th>
+                                        <th>Block</th>
+                                        <th>Seat Reservation</th>
+                                        <th>Candidates & Caste Profiles</th>
+                                        <th class="num-col">Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="seatCasteTableBody">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB 2: AGE & YOUTH -->
+                <div id="subtab-age" class="analytics-subtab-panel">
+                    <div class="analytics-kpi-row" id="ageKpiRow">
+                        <!-- Filled dynamically -->
+                    </div>
+                    <div class="analytics-cards-grid mt-4">
+                        <div class="analytics-card flex-2">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Age Bracket Distribution (Histogram)</h3>
+                                    <span class="badge-sub">Youth (&lt;35) vs Mid-Career vs Veterans (65+)</span>
+                                </div>
+                                <span class="card-tag">Generational Spread</span>
+                            </div>
+                            <div class="age-chart-container" id="ageBracketChart"></div>
+                        </div>
+                        <div class="analytics-card flex-1">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Average Age by Zone</h3>
+                                    <span class="badge-sub">Youth index ranked by average candidate age</span>
+                                </div>
+                                <span class="card-tag">Regional Ranking</span>
+                            </div>
+                            <div class="zone-age-list" id="zoneAgeList"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB 3: GENDER BREAKDOWN -->
+                <div id="subtab-gender" class="analytics-subtab-panel">
+                    <div class="analytics-kpi-row" id="genderKpiRow">
+                        <!-- Filled dynamically: Total Female, Total Male, % Female, Female Reserved Seats -->
+                    </div>
+                    <div class="analytics-cards-grid mt-4">
+                        <div class="analytics-card flex-1">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Statewide Gender Ratio</h3>
+                                    <span class="badge-sub">Male vs Female representation balance</span>
+                                </div>
+                                <span class="card-tag">Overall Balance</span>
+                            </div>
+                            <div class="gender-ratio-visual" id="genderRatioVisual"></div>
+                        </div>
+                        <div class="analytics-card flex-2">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Zone-Wise Women Candidate Leaderboard</h3>
+                                    <span class="badge-sub">Ranking zones by female candidate volume & participation %</span>
+                                </div>
+                                <span class="card-tag">Regional Performance</span>
+                            </div>
+                            <div class="analytics-table-wrapper">
+                                <table class="analytics-table" id="zoneGenderTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Zone Name</th>
+                                            <th class="num-col">Total Candidates</th>
+                                            <th class="num-col text-female">Female Cand.</th>
+                                            <th class="num-col text-male">Male Cand.</th>
+                                            <th class="num-col">% Female</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="zoneGenderBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB 4: SEAT READINESS -->
+                <div id="subtab-readiness" class="analytics-subtab-panel">
+                    <div class="analytics-kpi-row" id="readinessKpiRow">
+                        <!-- Filled dynamically -->
+                    </div>
+                    <div class="analytics-cards-grid mt-4">
+                        <div class="analytics-card flex-2">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Contender Density per Seat</h3>
+                                    <span class="badge-sub">Seats with 0 (Gap), 1, 2, 3, or 4+ contenders</span>
+                                </div>
+                                <span class="card-tag">Depth Analysis</span>
+                            </div>
+                            <div class="density-chart-container" id="densityChartContainer"></div>
+                        </div>
+                        <div class="analytics-card flex-1">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Zone Readiness Ranking</h3>
+                                    <span class="badge-sub">Ranked by completion and 2+ candidates density</span>
+                                </div>
+                                <span class="card-tag">Readiness Leaderboard</span>
+                            </div>
+                            <div class="zone-readiness-list" id="zoneReadinessList"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB 5: INCUMBENTS & SOURCES -->
+                <div id="subtab-background" class="analytics-subtab-panel">
+                    <div class="analytics-cards-grid">
+                        <div class="analytics-card flex-1">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Sitting Incumbents vs New Faces</h3>
+                                    <span class="badge-sub">Shortlisted candidates who are sitting ZPs</span>
+                                </div>
+                                <span class="card-tag">Incumbency Ratio</span>
+                            </div>
+                            <div class="incumbent-split-container" id="incumbentSplitContainer"></div>
+                        </div>
+                        <div class="analytics-card flex-1">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Primary Sourcing Channels</h3>
+                                    <span class="badge-sub">Recommendation channel contribution</span>
+                                </div>
+                                <span class="card-tag">Intake Pipeline</span>
+                            </div>
+                            <div class="source-ranking-list" id="sourceRankingList"></div>
+                        </div>
+                        <div class="analytics-card flex-1">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3>Key Local Governance Roles</h3>
+                                    <span class="badge-sub">Mukhiya, Up-Mukhiya, Ex-ZP, Social Workers</span>
+                                </div>
+                                <span class="card-tag">Grassroot Profile</span>
+                            </div>
+                            <div class="designation-pills-cloud" id="designationPillsCloud"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <!-- END VIEW 2: ANALYTICS & DEMOGRAPHICS HUB -->
+
+        <!-- VIEW 3: EXECUTIVE REPORT VIEW (Separate dedicated 1-page section) -->
         <div id="reportViewContainer" class="view-panel">
             <section id="executiveReportSection" class="executive-report-section">
                 <div class="report-header-banner">
@@ -354,32 +694,53 @@
                 <!-- Numerical KPI Summary Grid -->
                 <div class="report-kpi-bar" id="reportKpiBar"></div>
 
-                <!-- 2-Column Split: Zone & District Summary Table + Primary Recommendation Sources -->
+                <!-- 3-Column Balanced Executive Layout for 1-Page PDF -->
                 <div class="report-grid">
-                    <!-- Left: Zone & District Numerical Table -->
+                    <!-- Column 1: Zones Part 1 (Champaran, Magadh, Mithilanchal, Munger, Nalanda) -->
                     <div class="report-block">
-                        <div class="report-block-title">1. Zone & District-wise Distribution</div>
+                        <div class="report-block-title">1. Zone & District Distribution (Part 1)</div>
                         <div class="report-table-wrapper">
-                            <table class="report-table" id="reportZoneDistrictTable">
+                            <table class="report-table" id="reportZoneDistrictTable1">
                                 <thead>
                                     <tr>
                                         <th>Zone / District</th>
-                                        <th class="num-col">Total Seats</th>
-                                        <th class="num-col">Seats (1+ Cand.)</th>
-                                        <th class="num-col">Seats (2+ Cand.)</th>
-                                        <th class="num-col">Gap (0 Cand.)</th>
-                                        <th class="num-col">Total Cand.</th>
-                                        <th class="num-col">Completion (%)</th>
+                                        <th class="num-col">Total</th>
+                                        <th class="num-col">1+</th>
+                                        <th class="num-col">2+</th>
+                                        <th class="num-col">Gap</th>
+                                        <th class="num-col">Cand.</th>
+                                        <th class="num-col">Comp.%</th>
                                     </tr>
                                 </thead>
-                                <tbody id="reportZoneDistrictBody"></tbody>
+                                <tbody id="reportZoneDistrictBody1"></tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- Right: Primary Recommendation Sources -->
+                    <!-- Column 2: Zones Part 2 (Sahabad, Samastipur, Saran, Tirhut + State Total) -->
                     <div class="report-block">
-                        <div class="report-block-title">2. Primary Recommendation Sources</div>
+                        <div class="report-block-title">2. Zone & District Distribution (Part 2)</div>
+                        <div class="report-table-wrapper">
+                            <table class="report-table" id="reportZoneDistrictTable2">
+                                <thead>
+                                    <tr>
+                                        <th>Zone / District</th>
+                                        <th class="num-col">Total</th>
+                                        <th class="num-col">1+</th>
+                                        <th class="num-col">2+</th>
+                                        <th class="num-col">Gap</th>
+                                        <th class="num-col">Cand.</th>
+                                        <th class="num-col">Comp.%</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportZoneDistrictBody2"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Column 3: Primary Recommendation Sources -->
+                    <div class="report-block">
+                        <div class="report-block-title">3. Primary Recommendation Sources</div>
                         <div class="report-table-wrapper">
                             <table class="report-table" id="reportSourceTable">
                                 <thead>
@@ -396,7 +757,280 @@
                 </div>
             </section>
         </div>
-        <!-- END VIEW 2: EXECUTIVE REPORT VIEW -->
+        <!-- END VIEW 3: EXECUTIVE REPORT VIEW -->
+
+        <!-- VIEW 4: DATA QUALITY & DISCREPANCY AUDIT VIEW -->
+        <div id="auditViewContainer" class="view-panel">
+            <section id="dataAuditSection" class="audit-section">
+                <!-- Header Banner -->
+                <div class="audit-header-banner">
+                    <div class="audit-title-box">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <h2>Data Quality & Sheet Discrepancy Audit</h2>
+                            <span class="audit-status-tag" id="auditStatusTag">● Live Sheet Audit</span>
+                        </div>
+                        <p class="audit-subtitle">Comprehensive audit of cell shifts, invalid categories (ages/phones entered as category), corrupt phone numbers & spelling inconsistencies across Google Sheets</p>
+                    </div>
+                    <div class="audit-actions-group">
+                        <button id="exportAuditExcelBtn" class="export-audit-btn" title="Download clean Excel file with all errors for sheet operators">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Export Error Report (.xlsx)
+                        </button>
+                        <button id="reAuditBtn" class="reaudit-btn" title="Sync live Google Sheets and re-audit for errors">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.05l5.67-5.67"></path>
+                            </svg>
+                            Sync & Re-Scan Sheets
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Bar -->
+                <div class="audit-kpi-bar" id="auditKpiBar">
+                    <div class="audit-kpi-item total" id="kpiAuditTotalCard">
+                        <span class="audit-kpi-lbl">Total Discrepancies</span>
+                        <div class="audit-kpi-val" id="kpiAuditTotal">0</div>
+                        <span class="audit-kpi-sub">Across all 3 Google Sheets</span>
+                    </div>
+                    <div class="audit-kpi-item critical" id="kpiAuditCriticalCard">
+                        <span class="audit-kpi-lbl">Critical (Column Shifts)</span>
+                        <div class="audit-kpi-val text-danger" id="kpiAuditCritical">0</div>
+                        <span class="audit-kpi-sub">Age/Phone/Role in Category</span>
+                    </div>
+                    <div class="audit-kpi-item warning" id="kpiAuditSpellingCard">
+                        <span class="audit-kpi-lbl">Category Spelling Variants</span>
+                        <div class="audit-kpi-val text-warning" id="kpiAuditSpelling">0</div>
+                        <span class="audit-kpi-sub">Gen, Genral, Monority, etc.</span>
+                    </div>
+                    <div class="audit-kpi-item phone" id="kpiAuditPhoneCard">
+                        <span class="audit-kpi-lbl">Invalid Phone Numbers</span>
+                        <div class="audit-kpi-val text-primary" id="kpiAuditPhone">0</div>
+                        <span class="audit-kpi-sub">Missing digits, invalid format</span>
+                    </div>
+                    <div class="audit-kpi-item districts" id="kpiAuditDistrictsCard">
+                        <span class="audit-kpi-lbl">Districts Affected</span>
+                        <div class="audit-kpi-val text-success" id="kpiAuditDistricts">0</div>
+                        <span class="audit-kpi-sub">Need sheet correction</span>
+                    </div>
+                </div>
+
+                <!-- Interactive Filters Bar -->
+                <div class="audit-filters-bar">
+                    <div class="audit-filters-left">
+                        <div class="audit-filter-item">
+                            <label for="auditSheetFilter">Google Sheet:</label>
+                            <select id="auditSheetFilter" class="audit-filter-select">
+                                <option value="">All Sheets (All 3)</option>
+                                <option value="Sheet 1">Sheet 1 (Champaran, Saran, Sahabad)</option>
+                                <option value="Sheet 2">Sheet 2 (Samastipur, Tirhut, Mithilanchal)</option>
+                                <option value="Sheet 3">Sheet 3 (Munger, Magadh, Nalanda)</option>
+                            </select>
+                        </div>
+                        <div class="audit-filter-item">
+                            <label for="auditDistrictFilter">District:</label>
+                            <select id="auditDistrictFilter" class="audit-filter-select">
+                                <option value="">All Districts with Errors</option>
+                            </select>
+                        </div>
+                        <div class="audit-filter-item">
+                            <label for="auditSeatFilter">ZP Seat:</label>
+                            <select id="auditSeatFilter" class="audit-filter-select">
+                                <option value="">All Seats with Errors</option>
+                            </select>
+                        </div>
+                        <div class="audit-filter-item">
+                            <label for="auditTypeFilter">Issue Type:</label>
+                            <select id="auditTypeFilter" class="audit-filter-select">
+                                <option value="">All Issue Types</option>
+                                <option value="critical">🚨 Critical: Column Shifts & Number in Category</option>
+                                <option value="spelling">✏️ Category Spelling Inconsistencies</option>
+                                <option value="contact">📞 Invalid / Malformed Phone Numbers</option>
+                                <option value="age">🎂 Age Anomalies & Role in Age</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="audit-filters-right">
+                        <div class="audit-search-box">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <input type="text" id="auditSearchInput" placeholder="Search candidate, seat, district, value...">
+                            <button id="clearAuditSearch" class="clear-search-btn" title="Clear search">&times;</button>
+                        </div>
+                        <button id="resetAuditFiltersBtn" class="audit-reset-btn" title="Reset audit filters">Reset</button>
+                    </div>
+                </div>
+
+                <!-- Discrepancy Table Container -->
+                <div class="audit-table-container">
+                    <div class="audit-table-header-info">
+                        <span id="auditResultCount" class="audit-result-count">Showing 0 discrepancies</span>
+                        <span class="audit-table-tip">💡 Tip: Use the 'Export Error Report' button to send this clean list to Google Sheet operators.</span>
+                    </div>
+                    <div class="audit-table-wrapper">
+                        <table class="audit-table" id="auditDiscrepancyTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 42px;">#</th>
+                                    <th>Google Sheet</th>
+                                    <th>District & Zone</th>
+                                    <th>ZP Seat</th>
+                                    <th>Candidate Name</th>
+                                    <th>Field</th>
+                                    <th>Value in Sheet</th>
+                                    <th>Issue Severity & Type</th>
+                                    <th>Exact Correction / Instructions for Sheet</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditTableBody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <!-- END VIEW 4: DATA QUALITY & DISCREPANCY AUDIT VIEW -->
+
+        <!-- VIEW 5: SEAT & CANDIDATE GAP REPORT VIEW -->
+        <div id="gapViewContainer" class="view-panel">
+            <section id="gapReportSection" class="gap-report-section">
+                <!-- Header Banner -->
+                <div class="gap-header-banner">
+                    <div class="gap-title-box">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <h2>ZP Seat & Candidate Gap Report</h2>
+                            <span class="gap-status-tag" id="gapStatusTag">● 14 Zero-Candidate Gaps</span>
+                        </div>
+                        <p class="gap-subtitle">Zero-Candidate Seat Gaps | Mandatory Profile Completeness (Contact No, Category, Caste, Age, Brief Profile)</p>
+                    </div>
+                    <div class="gap-actions-group">
+                        <button id="exportGapExcelBtn" class="export-gap-btn" title="Download Excel Gap Report with Missing Fields">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Export Gap Report (.xlsx)
+                        </button>
+                        <button id="printGapBtn" class="print-gap-btn" onclick="window.print()" title="Print / Save PDF (Ctrl+P)">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                <rect x="6" y="14" width="12" height="8"></rect>
+                            </svg>
+                            Print Gap Report
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Cards Row -->
+                <div class="gap-kpi-bar" id="gapKpiBar">
+                    <div class="gap-kpi-item total" id="kpiGapTotalSeatsCard">
+                        <span class="gap-kpi-lbl">Total ZP Seats</span>
+                        <div class="gap-kpi-val" id="kpiGapTotalSeats">913</div>
+                        <span class="gap-kpi-sub">Across all 38 Districts</span>
+                    </div>
+                    <div class="gap-kpi-item zero-gap" id="kpiGapZeroSeatsCard">
+                        <span class="gap-kpi-lbl">Zero-Candidate Gaps</span>
+                        <div class="gap-kpi-val text-danger" id="kpiGapZeroSeats">0</div>
+                        <span class="gap-kpi-sub">Urgent: No candidate named</span>
+                    </div>
+                    <div class="gap-kpi-item candidates" id="kpiGapTotalCandsCard">
+                        <span class="gap-kpi-lbl">Identified Candidates</span>
+                        <div class="gap-kpi-val text-primary" id="kpiGapTotalCands">0</div>
+                        <span class="gap-kpi-sub">In seats with &ge;1 candidate</span>
+                    </div>
+                    <div class="gap-kpi-item incomplete" id="kpiGapIncompleteCard">
+                        <span class="gap-kpi-lbl">Profile Gaps (Incomplete)</span>
+                        <div class="gap-kpi-val text-warning" id="kpiGapIncomplete">0</div>
+                        <span class="gap-kpi-sub">Missing Contact, Caste, Age, etc.</span>
+                    </div>
+                    <div class="gap-kpi-item complete" id="kpiGapCompleteCard">
+                        <span class="gap-kpi-lbl">100% Complete Profiles</span>
+                        <div class="gap-kpi-val text-success" id="kpiGapComplete">0</div>
+                        <span class="gap-kpi-sub">All 5 compulsory fields present</span>
+                    </div>
+                </div>
+
+                <!-- Interactive Filter Toolbar -->
+                <div class="gap-filter-toolbar">
+                    <div class="gap-pill-tabs" id="gapPillTabs">
+                        <button class="gap-tab-pill active" data-gap-tab="all">All Seats & Candidates (<span id="gapTabCountAll">0</span>)</button>
+                        <button class="gap-tab-pill pill-danger" data-gap-tab="zero">🔴 Zero-Candidate Gaps (<span id="gapTabCountZero">0</span>)</button>
+                        <button class="gap-tab-pill pill-warning" data-gap-tab="incomplete">🟠 Profile Gaps / Incomplete (<span id="gapTabCountIncomplete">0</span>)</button>
+                        <button class="gap-tab-pill" data-gap-tab="missing-contact">📞 Missing Number (<span id="gapTabCountMissingContact">0</span>)</button>
+                        <button class="gap-tab-pill" data-gap-tab="missing-category">🏷️ Missing Category (<span id="gapTabCountMissingCategory">0</span>)</button>
+                        <button class="gap-tab-pill" data-gap-tab="missing-caste">👥 Missing Caste (<span id="gapTabCountMissingCaste">0</span>)</button>
+                        <button class="gap-tab-pill" data-gap-tab="missing-age">🎂 Missing Age (<span id="gapTabCountMissingAge">0</span>)</button>
+                        <button class="gap-tab-pill" data-gap-tab="missing-profile">📝 Missing Profile (<span id="gapTabCountMissingProfile">0</span>)</button>
+                        <button class="gap-tab-pill pill-success" data-gap-tab="complete">🟢 100% Complete (<span id="gapTabCountComplete">0</span>)</button>
+                    </div>
+
+                    <div class="gap-secondary-filters">
+                        <div class="gap-search-box">
+                            <input type="text" id="gapSearchInput" placeholder="🔍 Search ZP Seat, Candidate, District, Caste, Phone..." autocomplete="off">
+                            <button id="gapClearSearch" class="gap-clear-btn" title="Clear search">&times;</button>
+                        </div>
+                        <select id="gapZoneFilter" class="gap-select-filter">
+                            <option value="">All Zones (9)</option>
+                        </select>
+                        <select id="gapDistrictFilter" class="gap-select-filter">
+                            <option value="">All Districts (38)</option>
+                        </select>
+                        <button id="gapResetFiltersBtn" class="gap-reset-btn" title="Reset all gap filters">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.05l5.67-5.67"></path>
+                            </svg>
+                            Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table Card Container -->
+                <div class="gap-table-card">
+                    <div class="gap-table-header">
+                        <div class="gap-table-title">
+                            <h3>Seat Gap & Compulsory Candidate Profile Roster</h3>
+                            <span class="gap-table-subtitle" id="gapTableSubtitle">Showing all seats</span>
+                        </div>
+                        <div class="gap-legend">
+                            <span class="legend-item"><span class="legend-dot dot-danger"></span> Zero Candidate (Seat Gap)</span>
+                            <span class="legend-item"><span class="legend-dot dot-warning"></span> Profile Incomplete</span>
+                            <span class="legend-item"><span class="legend-dot dot-success"></span> Complete Profile</span>
+                        </div>
+                    </div>
+
+                    <div class="gap-table-wrapper">
+                        <table class="gap-table" id="gapTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 140px;">ZP Seat & Location</th>
+                                    <th style="width: 120px;">Reservation</th>
+                                    <th style="width: 130px;">Gap / Profile Status</th>
+                                    <th style="min-width: 150px;">Candidate Name</th>
+                                    <th style="width: 130px;">Contact Number <span class="req-star">*</span></th>
+                                    <th style="width: 100px;">Category <span class="req-star">*</span></th>
+                                    <th style="width: 110px;">Caste <span class="req-star">*</span></th>
+                                    <th style="width: 70px;" class="num-col">Age <span class="req-star">*</span></th>
+                                    <th style="min-width: 220px;">Brief Profile <span class="req-star">*</span></th>
+                                    <th style="width: 120px;">Source Channel</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gapTableBody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <!-- END VIEW 5: SEAT & CANDIDATE GAP REPORT VIEW -->
         </main>
     </div>
 
@@ -408,8 +1042,73 @@
         </div>
     </div>
 
+    <!-- Mobile App Fixed Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <button class="mob-nav-item active" data-view="dashboard" id="mobNavDashboard">
+            <span class="mob-nav-icon">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+            </span>
+            <span class="mob-nav-label">Dashboard</span>
+        </button>
+        <button class="mob-nav-item" data-view="analytics" id="mobNavAnalytics">
+            <span class="mob-nav-icon">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+            </span>
+            <span class="mob-nav-label">Analytics</span>
+        </button>
+        <button class="mob-nav-item" data-view="report" id="mobNavReport">
+            <span class="mob-nav-icon">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+            </span>
+            <span class="mob-nav-label">Reports</span>
+        </button>
+        <button class="mob-nav-item" data-view="gap" id="mobNavGap">
+            <span class="mob-nav-icon">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </span>
+            <span class="mob-nav-label">Gaps</span>
+            <span id="mobGapBadge" class="mob-filter-badge" style="display:none; background:#dc2626;">0</span>
+        </button>
+        <button class="mob-nav-item" data-view="audit" id="mobNavAudit">
+            <span class="mob-nav-icon">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </span>
+            <span class="mob-nav-label">Audit</span>
+            <span id="mobAuditBadge" class="mob-filter-badge" style="display:none;">0</span>
+        </button>
+        <button class="mob-nav-item" id="mobNavFilterBtn">
+            <span class="mob-nav-icon">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+            </span>
+            <span class="mob-nav-label">Filters</span>
+            <span id="mobActiveFilterBadge" class="mob-filter-badge" style="display:none;">0</span>
+        </button>
+    </nav>
+
     <!-- SheetJS for XLSX / CSV processing (Local with CDN fallback) -->
     <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=4.7"></script>
 </body>
 </html>
