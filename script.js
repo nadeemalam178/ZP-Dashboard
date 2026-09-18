@@ -529,10 +529,11 @@ async function loadData(forceReload = false) {
                 cacheTimestamp = idbData.timestamp || 0;
                 if (syncBadge) {
                     const numZones = getUniqueValues(candidatesData, 'Zone').length;
+                    const numDistricts = getUniqueValues(candidatesData, 'District').length;
                     const ageMins = Math.round((Date.now() - cacheTimestamp) / 60000);
                     syncBadge.innerHTML = ageMins > 0 
-                        ? `⚡ Instant Cache (${ageMins}m ago, All ${numZones || 9} Zones)`
-                        : `⚡ Instant Cache (All ${numZones || 9} Zones)`;
+                        ? `⚡ Instant Cache (${ageMins}m ago, ${numZones} Zones, ${numDistricts} Districts)`
+                        : `⚡ Instant Cache (${numZones} Zones, ${numDistricts} Districts)`;
                     syncBadge.classList.remove('offline');
                 }
             } else {
@@ -548,7 +549,8 @@ async function loadData(forceReload = false) {
                             cacheTimestamp = localData.timestamp || Date.now();
                             if (syncBadge) {
                                 const numZones = getUniqueValues(candidatesData, 'Zone').length;
-                                syncBadge.innerHTML = `⚡ Fast Boot (All ${numZones || 9} Zones)`;
+                                const numDistricts = getUniqueValues(candidatesData, 'District').length;
+                                syncBadge.innerHTML = `⚡ Fast Boot (${numZones} Zones, ${numDistricts} Districts)`;
                                 syncBadge.classList.remove('offline');
                             }
                         }
@@ -625,7 +627,8 @@ async function loadData(forceReload = false) {
         // Update Sync Status Badge
         if (syncBadge) {
             const numZones = getUniqueValues(candidatesData, 'Zone').length;
-            syncBadge.innerHTML = `● Live Synced (All ${numZones || 9} Zones)`;
+            const numDistricts = getUniqueValues(candidatesData, 'District').length;
+            syncBadge.innerHTML = `● Live Synced (${numZones} Zones, ${numDistricts} Districts)`;
             syncBadge.classList.remove('offline');
         }
     } catch (error) {
@@ -3150,6 +3153,14 @@ function renderKPIs(filteredCandidates) {
         const pct = ((gapSeats / totalZPSeats) * 100).toFixed(1);
         chipGap.textContent = gapSeats === 0 ? '0 Gaps' : `${pct}% Attention`;
     }
+
+    // Dynamic Zone and District metrics
+    const chipZones = document.getElementById('kpi-chip-zones');
+    const subtextDistricts = document.getElementById('kpi-subtext-districts');
+    const activeZones = getUniqueValues(filteredCandidates, 'Zone').length;
+    const activeDistricts = getUniqueValues(filteredCandidates, 'District').length;
+    if (chipZones) chipZones.textContent = `${activeZones} Zones`;
+    if (subtextDistricts) subtextDistricts.textContent = `Across ${activeDistricts} Districts`;
 }
 
 function animateKPI(element, targetValue) {
@@ -4910,6 +4921,7 @@ function renderGapReport() {
 
     // 3. Update KPI Elements
     const kpiGapTotalSeats = document.getElementById('kpiGapTotalSeats');
+    const kpiGapDistrictsSub = document.getElementById('kpiGapDistrictsSub');
     const kpiGapZeroSeats = document.getElementById('kpiGapZeroSeats');
     const kpiGapTotalCands = document.getElementById('kpiGapTotalCands');
     const kpiGapIncomplete = document.getElementById('kpiGapIncomplete');
@@ -4917,6 +4929,10 @@ function renderGapReport() {
     const gapStatusTag = document.getElementById('gapStatusTag');
 
     if (kpiGapTotalSeats) kpiGapTotalSeats.textContent = seatMap.size;
+    if (kpiGapDistrictsSub) {
+        const totalDistricts = getUniqueValues(candidatesData, 'District').length;
+        kpiGapDistrictsSub.textContent = `Across all ${totalDistricts} Districts`;
+    }
     if (kpiGapZeroSeats) kpiGapZeroSeats.textContent = zeroCandidateCount;
     if (kpiGapTotalCands) kpiGapTotalCands.textContent = identifiedCandidateCount;
     if (kpiGapIncomplete) kpiGapIncomplete.textContent = incompleteProfileCount;
