@@ -1,0 +1,14 @@
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/data_cache.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/script.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/style.css
+  Cache-Control: public, max-age=0, must-revalidate

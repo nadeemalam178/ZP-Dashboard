@@ -403,9 +403,12 @@ function initMultiSelectFilters() {
  * CLIENT-SIDE INSTANT CACHE (IndexedDB + JSON Fallback)
  * =========================================================
  */
+const APP_DATA_VERSION = 'v5.1_20260918';
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes: fast instant boot, silent background revalidation if older
 const DB_NAME = 'ZP_DASHBOARD_DB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented from 1 to 2 to invalidate stale schemas
 const STORE_NAME = 'dashboard_cache';
+let isSyncingData = false;
 
 function openDashboardDB() {
     return new Promise((resolve) => {
@@ -417,9 +420,10 @@ function openDashboardDB() {
             const req = indexedDB.open(DB_NAME, DB_VERSION);
             req.onupgradeneeded = (e) => {
                 const db = e.target.result;
-                if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    db.createObjectStore(STORE_NAME);
+                if (db.objectStoreNames.contains(STORE_NAME)) {
+                    db.deleteObjectStore(STORE_NAME);
                 }
+                db.createObjectStore(STORE_NAME);
             };
             req.onsuccess = (e) => resolve(e.target.result);
             req.onerror = () => resolve(null);
@@ -437,7 +441,15 @@ async function getCachedDashboardPayload() {
             const tx = db.transaction(STORE_NAME, 'readonly');
             const store = tx.objectStore(STORE_NAME);
             const req = store.get('latest_payload');
-            req.onsuccess = () => resolve(req.result || null);
+            req.onsuccess = () => {
+                const data = req.result;
+                if (!data || data.version !== APP_DATA_VERSION) {
+                    console.log(`[Cache] Discarding stale cache (stored: ${data?.version}, required: ${APP_DATA_VERSION})`);
+                    resolve(null);
+                    return;
+                }
+                resolve(data);
+            };
             req.onerror = () => resolve(null);
         });
     } catch (e) {
@@ -451,7 +463,11 @@ async function saveCachedDashboardPayload(payload) {
         if (!db) return;
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
-        store.put(payload, 'latest_payload');
+        store.put({
+            ...payload,
+            version: APP_DATA_VERSION,
+            timestamp: payload.timestamp || Date.now()
+        }, 'latest_payload');
     } catch (e) {
         console.warn("Could not save to IndexedDB:", e);
     }
@@ -493,35 +509,43 @@ function applyDashboardPayload(payload) {
 }
 
 /**
- * Data Loader: Loads instantly from IndexedDB or local data_cache.json, with on-demand live Google Sheets sync.
+ * Data Loader: Fast boot with Stale-While-Revalidate architecture.
+ * Renders instantly from verified cache (<50ms), then automatically revalidates
+ * against live Google Sheets if cache is older than TTL or during explicit sync.
  */
 async function loadData(forceReload = false) {
-    loadingIndicator.classList.add('show');
+    if (isSyncingData && !forceReload) return;
     const syncBadge = document.getElementById('syncStatusBadge');
-    try {
-        let loadedFromCache = false;
+    let loadedFromCache = false;
+    let cacheTimestamp = 0;
 
-        // 1. Instant Boot from Cache if not forcing network reload
+    try {
+        // 1. Instant Boot from Verified IndexedDB or data_cache.json
         if (!forceReload) {
             const idbData = await getCachedDashboardPayload();
             if (idbData && idbData.candidatesData && idbData.candidatesData.length > 0) {
                 applyDashboardPayload(idbData);
                 loadedFromCache = true;
+                cacheTimestamp = idbData.timestamp || 0;
                 if (syncBadge) {
                     const numZones = getUniqueValues(candidatesData, 'Zone').length;
-                    syncBadge.innerHTML = `⚡ Instant Cache (All ${numZones || 9} Zones)`;
+                    const ageMins = Math.round((Date.now() - cacheTimestamp) / 60000);
+                    syncBadge.innerHTML = ageMins > 0 
+                        ? `⚡ Instant Cache (${ageMins}m ago, All ${numZones || 9} Zones)`
+                        : `⚡ Instant Cache (All ${numZones || 9} Zones)`;
                     syncBadge.classList.remove('offline');
                 }
             } else {
                 // Try fetching local data_cache.json fallback (super fast ~30ms)
                 try {
-                    const localResp = await fetch('data_cache.json');
+                    const localResp = await fetch(`data_cache.json?v=${APP_DATA_VERSION}&_t=${Date.now()}`, { cache: 'no-cache' });
                     if (localResp.ok) {
                         const localData = await localResp.json();
                         if (localData && localData.candidatesData && localData.candidatesData.length > 0) {
                             applyDashboardPayload(localData);
-                            saveCachedDashboardPayload(localData);
+                            await saveCachedDashboardPayload(localData);
                             loadedFromCache = true;
+                            cacheTimestamp = localData.timestamp || Date.now();
                             if (syncBadge) {
                                 const numZones = getUniqueValues(candidatesData, 'Zone').length;
                                 syncBadge.innerHTML = `⚡ Fast Boot (All ${numZones || 9} Zones)`;
@@ -535,17 +559,26 @@ async function loadData(forceReload = false) {
             }
         }
 
-        if (loadedFromCache) {
-            loadingIndicator.classList.remove('show');
+        // Stale-While-Revalidate: If we have a fresh cache (<10m) and not forcing reload, we're done!
+        const isCacheStale = !loadedFromCache || (Date.now() - cacheTimestamp > CACHE_TTL_MS);
+        if (loadedFromCache && !isCacheStale) {
+            if (loadingIndicator) loadingIndicator.classList.remove('show');
             return;
         }
 
-        // 2. Fetch live Google Sheets in parallel over the network
+        // If not loaded from cache (first time or forceReload), show spinner.
+        // If loaded from cache but stale, do NOT block user with spinner; revalidate quietly in background!
+        if (!loadedFromCache) {
+            if (loadingIndicator) loadingIndicator.classList.add('show');
+        }
+
+        isSyncingData = true;
         if (syncBadge) {
             syncBadge.innerHTML = '🔄 Syncing Live Google Sheets...';
             syncBadge.classList.remove('offline');
         }
 
+        // 2. Fetch live Google Sheets in parallel over the network
         candidatesData = [];
         incumbentMap.clear();
         chairmanMap.clear();
@@ -578,7 +611,8 @@ async function loadData(forceReload = false) {
 
         // Save fresh payload to IndexedDB for next instant boot
         const freshPayload = {
-            version: '4.1',
+            version: APP_DATA_VERSION,
+            timestamp: Date.now(),
             lastSync: new Date().toLocaleString(),
             candidatesData: candidatesData,
             incumbentMap: Array.from(incumbentMap.entries()),
@@ -586,7 +620,7 @@ async function loadData(forceReload = false) {
             runnerUpMap: Array.from(runnerUpMap.entries()),
             pkData: pkData
         };
-        saveCachedDashboardPayload(freshPayload);
+        await saveCachedDashboardPayload(freshPayload);
 
         // Update Sync Status Badge
         if (syncBadge) {
@@ -603,7 +637,7 @@ async function loadData(forceReload = false) {
         // Fallback to cache if available
         if (candidatesData.length === 0) {
             try {
-                const localResp = await fetch('data_cache.json');
+                const localResp = await fetch(`data_cache.json?v=${APP_DATA_VERSION}&_t=${Date.now()}`);
                 if (localResp.ok) {
                     const localData = await localResp.json();
                     applyDashboardPayload(localData);
@@ -614,9 +648,11 @@ async function loadData(forceReload = false) {
             alert(`Google Sheets Sync:\n${error.message}\n\nPlease click "Sync Live Google Sheets" to retry.`);
         }
     } finally {
-        loadingIndicator.classList.remove('show');
+        isSyncingData = false;
+        if (loadingIndicator) loadingIndicator.classList.remove('show');
     }
 }
+
 
 /**
  * Parses an XLSX workbook directly from Google Sheets.
