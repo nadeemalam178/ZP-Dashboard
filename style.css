@@ -965,10 +965,10 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* =================== 5 KPI CARDS - EXECUTIVE METRIC CARDS =================== */
+/* =================== 6 KPI CARDS - EXECUTIVE METRIC CARDS =================== */
 .kpi-section {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 14px;
 }
 
@@ -1028,6 +1028,19 @@ body {
     background: var(--accent-cyan);
 }
 
+.kpi-card.teal-card {
+    border-color: rgba(13, 148, 136, 0.25);
+}
+
+.kpi-card.teal-card.active-kpi {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2), 0 8px 20px -4px rgba(13, 148, 136, 0.12);
+}
+
+.kpi-card.teal-card.active-kpi::before {
+    background: #0d9488;
+}
+
 .kpi-card.gap-card.active-kpi {
     border-color: #e11d48;
     box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.2), 0 8px 20px -4px rgba(225, 29, 72, 0.12);
@@ -1072,6 +1085,7 @@ body {
 .kpi-badge-indigo { background: #eef2ff; color: #4338ca; border: 1px solid #e0e7ff; }
 .kpi-badge-emerald { background: #ecfdf5; color: #059669; border: 1px solid #d1fae5; }
 .kpi-badge-blue { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
+.kpi-badge-teal { background: #f0fdfa; color: #0d9488; border: 1px solid #ccfbf1; }
 .kpi-badge-rose { background: #fff1f2; color: #e11d48; border: 1px solid #ffe4e6; }
 .kpi-badge-purple { background: #f5f3ff; color: #7c3aed; border: 1px solid #ede9fe; }
 
@@ -1106,6 +1120,7 @@ body {
 .kpi-chip-indigo { background: #eef2ff; color: #4338ca; }
 .kpi-chip-emerald { background: #ecfdf5; color: #047857; }
 .kpi-chip-blue { background: #eff6ff; color: #1d4ed8; }
+.kpi-chip-teal { background: #f0fdfa; color: #0f766e; }
 .kpi-chip-rose { background: #fff1f2; color: #be123c; }
 .kpi-chip-purple { background: #f5f3ff; color: #6d28d9; }
 
@@ -1247,6 +1262,12 @@ body {
     background: #eff6ff;
     color: #1d4ed8;
     border: 1px solid #dbeafe;
+}
+
+.count-three-pill {
+    background: #f0fdfa;
+    color: #0f766e;
+    border: 1px solid #ccfbf1;
 }
 
 .gap-badge {
@@ -2501,7 +2522,7 @@ tbody tr:hover {
 
 .report-kpi-bar {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     gap: 8px;
     margin-bottom: 16px;
 }
@@ -2962,7 +2983,7 @@ tbody tr:hover {
     pointer-events: auto;
 }
 
-@media (max-width: 1300px) {
+@media (max-width: 1400px) {
     .kpi-section { grid-template-columns: repeat(3, 1fr); }
     .report-grid { grid-template-columns: 1fr; }
 }

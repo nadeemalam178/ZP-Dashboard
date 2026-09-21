@@ -200,7 +200,7 @@
 
             <!-- VIEW 1: MAIN DASHBOARD VIEW -->
             <div id="dashboardViewContainer" class="view-panel active-panel">
-                <!-- KPIs (5 Cards including 2+ candidates) -->
+                <!-- KPIs (6 Cards including 2+ and 3+ candidates) -->
                 <section class="kpi-section">
                 <div class="kpi-card" id="card-total-seats" title="Click to show all seats">
                     <div class="kpi-header">
@@ -251,6 +251,24 @@
                         <span class="kpi-subtext">Multiple probable candidates</span>
                     </div>
                 </div>
+                <div class="kpi-card teal-card" id="card-three-candidates" title="Click to filter seats with 3+ candidates identified">
+                    <div class="kpi-header">
+                        <h3>Seats with 3+ Candidates</h3>
+                        <div class="kpi-icon-badge kpi-badge-teal">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p id="kpi-three" class="kpi-value">-</p>
+                    <div class="kpi-meta-row">
+                        <span class="kpi-chip kpi-chip-teal" id="kpi-chip-three">Strong Bench</span>
+                        <span class="kpi-subtext">3+ candidates identified</span>
+                    </div>
+                </div>
                 <div class="kpi-card gap-card" id="card-gap-seats" title="Click to filter gap seats">
                     <div class="kpi-header">
                         <h3>Gap (Not Identified)</h3>
@@ -280,7 +298,7 @@
                     </div>
                     <p id="kpi-total" class="kpi-value">-</p>
                     <div class="kpi-meta-row">
-                        <span class="kpi-chip kpi-chip-purple">~2.5 / Seat</span>
+                        <span class="kpi-chip kpi-chip-purple" id="kpi-chip-avg">~2.6 / Seat</span>
                         <span class="kpi-subtext">Total candidate profiles</span>
                     </div>
                 </div>
@@ -306,6 +324,7 @@
                                 <th>Total Seats</th>
                                 <th>Seats with Candidates</th>
                                 <th>Seats (2+ Cand.)</th>
+                                <th>Seats (3+ Cand.)</th>
                                 <th>Gap</th>
                                 <th>Total Candidates</th>
                             </tr>
@@ -326,6 +345,7 @@
                                 <th>Total Seats</th>
                                 <th>Seats with Candidates</th>
                                 <th>Seats (2+ Cand.)</th>
+                                <th>Seats (3+ Cand.)</th>
                                 <th>Gap</th>
                                 <th>Total Candidates</th>
                             </tr>
@@ -707,6 +727,7 @@
                                         <th class="num-col">Total</th>
                                         <th class="num-col">1+</th>
                                         <th class="num-col">2+</th>
+                                        <th class="num-col">3+</th>
                                         <th class="num-col">Gap</th>
                                         <th class="num-col">Cand.</th>
                                         <th class="num-col">Comp.%</th>
@@ -728,6 +749,7 @@
                                         <th class="num-col">Total</th>
                                         <th class="num-col">1+</th>
                                         <th class="num-col">2+</th>
+                                        <th class="num-col">3+</th>
                                         <th class="num-col">Gap</th>
                                         <th class="num-col">Cand.</th>
                                         <th class="num-col">Comp.%</th>

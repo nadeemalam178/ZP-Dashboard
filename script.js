@@ -35,6 +35,7 @@ const candidateTableBody = document.getElementById('candidateTableBody');
 const kpiSeats = document.getElementById('kpi-seats');
 const kpiUnique = document.getElementById('kpi-unique');
 const kpiMulti = document.getElementById('kpi-multi');
+const kpiThree = document.getElementById('kpi-three');
 const kpiGap = document.getElementById('kpi-gap');
 const kpiTotal = document.getElementById('kpi-total');
 
@@ -42,6 +43,7 @@ const kpiTotal = document.getElementById('kpi-total');
 const cardTotalSeats = document.getElementById('card-total-seats');
 const cardSeatsIdentified = document.getElementById('card-seats-identified');
 const cardMultiCandidates = document.getElementById('card-multi-candidates');
+const cardThreeCandidates = document.getElementById('card-three-candidates');
 const cardGapSeats = document.getElementById('card-gap-seats');
 
 // Search elements
@@ -374,6 +376,7 @@ if (refreshBtn) {
 function initMultiSelectFilters() {
     msCandidateStatus = new MultiSelect('msCandidateStatus', 'All Statuses', 'badgeCandidateStatus');
     msCandidateStatus.setOptions([
+        { value: 'threePlus', label: '3+ Candidates Identified' },
         { value: 'multi', label: '2+ Candidates (Multi)' },
         { value: 'single', label: '1 Candidate (Single)' },
         { value: 'gap', label: '0 Candidates (Gap)' }
@@ -1422,6 +1425,21 @@ cardMultiCandidates.addEventListener('click', () => {
     renderDashboard();
 });
 
+if (cardThreeCandidates) {
+    cardThreeCandidates.addEventListener('click', () => {
+        if (msCandidateStatus) {
+            const cur = msCandidateStatus.getSelected();
+            if (cur.includes('threePlus') && cur.length === 1) {
+                msCandidateStatus.clear();
+            } else {
+                msCandidateStatus.setSelected(['threePlus']);
+            }
+        }
+        updateActiveKPICard();
+        renderDashboard();
+    });
+}
+
 cardGapSeats.addEventListener('click', () => {
     if (msCandidateStatus) {
         const cur = msCandidateStatus.getSelected();
@@ -1440,8 +1458,11 @@ function updateActiveKPICard() {
     const selected = msCandidateStatus.getSelected();
     cardTotalSeats.classList.toggle('active-kpi', selected.length === 0);
     cardMultiCandidates.classList.toggle('active-kpi', selected.length === 1 && selected.includes('multi'));
+    if (cardThreeCandidates) {
+        cardThreeCandidates.classList.toggle('active-kpi', selected.length === 1 && selected.includes('threePlus'));
+    }
     cardGapSeats.classList.toggle('active-kpi', selected.length === 1 && selected.includes('gap'));
-    cardSeatsIdentified.classList.toggle('active-kpi', selected.includes('single'));
+    cardSeatsIdentified.classList.toggle('active-kpi', selected.includes('single') && !selected.includes('gap'));
 }
 
 // --- UNIVERSAL SEARCH ENGINE (English / Hindi / Devanagari) ---
@@ -2342,6 +2363,7 @@ function getFilteredCandidates(applyStatusFilter = true) {
             const seat = String(row['ZP Seat Number']).trim();
             const count = seatCounts.get(seat) || 0;
             return selectedCandidateStatuses.some(status => {
+                if (status === 'threePlus') return count >= 3;
                 if (status === 'multi') return count >= 2;
                 if (status === 'single') return count === 1;
                 if (status === 'gap') return count === 0;
@@ -2432,11 +2454,13 @@ function renderExecutiveReport(data) {
 
     let seatsWith1Plus = 0;
     let seatsWith2Plus = 0;
+    let seatsWith3Plus = 0;
     let gapSeats = 0;
 
     seatCandidateMap.forEach(count => {
         if (count >= 1) seatsWith1Plus++;
         if (count >= 2) seatsWith2Plus++;
+        if (count >= 3) seatsWith3Plus++;
         if (count === 0) gapSeats++;
     });
 
@@ -2456,6 +2480,10 @@ function renderExecutiveReport(data) {
         <div class="report-kpi-item">
             <span class="report-kpi-lbl">Seats (2+ Cand.)</span>
             <strong class="report-kpi-val text-warning">${seatsWith2Plus}</strong>
+        </div>
+        <div class="report-kpi-item">
+            <span class="report-kpi-lbl">Seats (3+ Cand.)</span>
+            <strong class="report-kpi-val" style="color:#0d9488;">${seatsWith3Plus}</strong>
         </div>
         <div class="report-kpi-item">
             <span class="report-kpi-lbl">Gap Seats (0 Cand.)</span>
@@ -2484,6 +2512,7 @@ function renderExecutiveReport(data) {
             let zoneTotalSeats = new Set();
             let zoneSeats1Plus = 0;
             let zoneSeats2Plus = 0;
+            let zoneSeats3Plus = 0;
             let zoneGap = 0;
             let zoneTotalCand = 0;
 
@@ -2494,6 +2523,7 @@ function renderExecutiveReport(data) {
                 const dObj = distMap.get(district);
                 let dSeats1Plus = 0;
                 let dSeats2Plus = 0;
+                let dSeats3Plus = 0;
                 let dGap = 0;
 
                 dObj.seats.forEach(s => {
@@ -2501,11 +2531,13 @@ function renderExecutiveReport(data) {
                     const c = seatCandidateMap.get(s) || 0;
                     if (c >= 1) dSeats1Plus++;
                     if (c >= 2) dSeats2Plus++;
+                    if (c >= 3) dSeats3Plus++;
                     if (c === 0) dGap++;
                 });
 
                 zoneSeats1Plus += dSeats1Plus;
                 zoneSeats2Plus += dSeats2Plus;
+                zoneSeats3Plus += dSeats3Plus;
                 zoneGap += dGap;
                 zoneTotalCand += dObj.totalCand;
 
@@ -2518,6 +2550,7 @@ function renderExecutiveReport(data) {
                         <td class="num-col">${dTotalSeats}</td>
                         <td class="num-col">${dSeats1Plus}</td>
                         <td class="num-col text-warning font-bold">${dSeats2Plus}</td>
+                        <td class="num-col font-bold" style="color:#0d9488;">${dSeats3Plus}</td>
                         <td class="num-col ${dGap > 0 ? 'text-danger font-bold' : 'text-success'}">${dGap}</td>
                         <td class="num-col font-bold">${dObj.totalCand}</td>
                         <td class="num-col font-bold ${parseFloat(dCompletionPct) === 100 ? 'text-success' : ''}">${dCompletionPct}%</td>
@@ -2535,6 +2568,7 @@ function renderExecutiveReport(data) {
                     <td class="num-col font-bold">${zoneSeatsTotal}</td>
                     <td class="num-col font-bold">${zoneSeats1Plus}</td>
                     <td class="num-col font-bold text-warning">${zoneSeats2Plus}</td>
+                    <td class="num-col font-bold" style="color:#0d9488;">${zoneSeats3Plus}</td>
                     <td class="num-col font-bold ${zoneGap > 0 ? 'text-danger' : 'text-success'}">${zoneGap}</td>
                     <td class="num-col font-bold">${zoneTotalCand}</td>
                     <td class="num-col font-bold text-success">${zoneCompletionPct}%</td>
@@ -2555,6 +2589,7 @@ function renderExecutiveReport(data) {
             <td class="num-col"><strong>${totalSeatsCount}</strong></td>
             <td class="num-col"><strong>${seatsWith1Plus}</strong></td>
             <td class="num-col text-warning"><strong>${seatsWith2Plus}</strong></td>
+            <td class="num-col" style="color:#0d9488;"><strong>${seatsWith3Plus}</strong></td>
             <td class="num-col ${gapSeats > 0 ? 'text-danger' : 'text-success'}"><strong>${gapSeats}</strong></td>
             <td class="num-col"><strong>${totalCandidates}</strong></td>
             <td class="num-col text-success"><strong>${overallCompletionPct}%</strong></td>
@@ -2641,6 +2676,7 @@ function renderBifurcation(data) {
                 seats: new Set(),
                 seatsWithCandidate: new Set(),
                 seatsWith2Plus: new Set(),
+                seatsWith3Plus: new Set(),
                 totalCandidates: 0
             });
         }
@@ -2651,6 +2687,7 @@ function renderBifurcation(data) {
             const count = seatCandidateCount.get(seat) || 0;
             if (count >= 1) z.seatsWithCandidate.add(seat);
             if (count >= 2) z.seatsWith2Plus.add(seat);
+            if (count >= 3) z.seatsWith3Plus.add(seat);
             if (candidateName && candidateName !== 'undefined') {
                 z.totalCandidates++;
             }
@@ -2669,6 +2706,7 @@ function renderBifurcation(data) {
                 <td><strong>${z.seats.size}</strong></td>
                 <td><span class="count-badge count-identified">${z.seatsWithCandidate.size}</span></td>
                 <td><span class="count-badge count-multi-pill">${z.seatsWith2Plus.size}</span></td>
+                <td><span class="count-badge count-three-pill">${z.seatsWith3Plus.size}</span></td>
                 <td><span class="gap-badge ${gap > 0 ? 'has-gap' : 'no-gap'}">${gap}</span></td>
                 <td><strong>${z.totalCandidates}</strong></td>
             </tr>
@@ -2703,6 +2741,7 @@ function renderBifurcation(data) {
                 seats: new Set(),
                 seatsWithCandidate: new Set(),
                 seatsWith2Plus: new Set(),
+                seatsWith3Plus: new Set(),
                 totalCandidates: 0
             });
         }
@@ -2712,6 +2751,7 @@ function renderBifurcation(data) {
             const count = seatCandidateCount.get(seat) || 0;
             if (count >= 1) d.seatsWithCandidate.add(seat);
             if (count >= 2) d.seatsWith2Plus.add(seat);
+            if (count >= 3) d.seatsWith3Plus.add(seat);
             if (candidateName && candidateName !== 'undefined') {
                 d.totalCandidates++;
             }
@@ -2732,6 +2772,7 @@ function renderBifurcation(data) {
                 <td><strong>${d.seats.size}</strong></td>
                 <td><span class="count-badge count-identified">${d.seatsWithCandidate.size}</span></td>
                 <td><span class="count-badge count-multi-pill">${d.seatsWith2Plus.size}</span></td>
+                <td><span class="count-badge count-three-pill">${d.seatsWith3Plus.size}</span></td>
                 <td><span class="gap-badge ${gap > 0 ? 'has-gap' : 'no-gap'}">${gap}</span></td>
                 <td><strong>${d.totalCandidates}</strong></td>
             </tr>
@@ -2806,6 +2847,7 @@ function renderSeatTable(data) {
     let badgeParts = [];
     if (selStatus.length > 0) {
         const labels = {
+            'threePlus': '3+ Candidates Identified',
             'multi': '2+ Candidates',
             'single': '1 Candidate',
             'gap': 'Gap (0 Candidates)'
@@ -3235,24 +3277,29 @@ function renderKPIs(filteredCandidates) {
     const totalZPSeats = uniqueSeats.size;
     let seatsWithAtLeastOne = 0;
     let seatsWith2Plus = 0;
+    let seatsWith3Plus = 0;
     let gapSeats = 0;
 
     seatCandidateMap.forEach(count => {
         if (count >= 1) seatsWithAtLeastOne++;
         if (count >= 2) seatsWith2Plus++;
+        if (count >= 3) seatsWith3Plus++;
         if (count === 0) gapSeats++;
     });
 
     animateKPI(kpiSeats, totalZPSeats);
     animateKPI(kpiUnique, seatsWithAtLeastOne);
     animateKPI(kpiMulti, seatsWith2Plus);
+    animateKPI(kpiThree, seatsWith3Plus);
     animateKPI(kpiGap, gapSeats);
     animateKPI(kpiTotal, totalCandidatesIdentified);
 
     // Update contextual intelligence chips
     const chipCoverage = document.getElementById('kpi-chip-coverage');
     const chipMulti = document.getElementById('kpi-chip-multi');
+    const chipThree = document.getElementById('kpi-chip-three');
     const chipGap = document.getElementById('kpi-chip-gap');
+    const chipAvg = document.getElementById('kpi-chip-avg');
 
     if (chipCoverage && totalZPSeats > 0) {
         const pct = ((seatsWithAtLeastOne / totalZPSeats) * 100).toFixed(1);
@@ -3262,9 +3309,17 @@ function renderKPIs(filteredCandidates) {
         const pct = ((seatsWith2Plus / totalZPSeats) * 100).toFixed(1);
         chipMulti.textContent = `${pct}% Target Met`;
     }
+    if (chipThree && totalZPSeats > 0) {
+        const pct = ((seatsWith3Plus / totalZPSeats) * 100).toFixed(1);
+        chipThree.textContent = `${pct}% Strong Bench`;
+    }
     if (chipGap && totalZPSeats > 0) {
         const pct = ((gapSeats / totalZPSeats) * 100).toFixed(1);
         chipGap.textContent = gapSeats === 0 ? '0 Gaps' : `${pct}% Attention`;
+    }
+    if (chipAvg && totalZPSeats > 0) {
+        const avg = (totalCandidatesIdentified / totalZPSeats).toFixed(1);
+        chipAvg.textContent = `~${avg} / Seat`;
     }
 
     // Dynamic Zone and District metrics
