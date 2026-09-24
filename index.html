@@ -12,7 +12,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=5.1">
+    <link rel="stylesheet" href="style.css?v=5.2">
+    <!-- Vercel Web Analytics -->
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
@@ -424,6 +429,24 @@
                             <!-- Rows populated via JS -->
                         </tbody>
                     </table>
+                </div>
+                <!-- Table Pagination Bar -->
+                <div class="table-pagination-bar" id="tablePaginationBar">
+                    <div class="pagination-info" id="paginationInfo">Showing 1–25 of seats</div>
+                    <div class="pagination-controls">
+                        <button id="pgPrevBtn" class="pg-btn" title="Previous Page">&laquo; Prev</button>
+                        <div id="pgPageNumbers" class="pg-numbers"></div>
+                        <button id="pgNextBtn" class="pg-btn" title="Next Page">Next &raquo;</button>
+                    </div>
+                    <div class="pagination-size">
+                        <label for="pgPageSize">Per page:</label>
+                        <select id="pgPageSize" class="pg-size-select">
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="all">All</option>
+                        </select>
+                    </div>
                 </div>
             </section>
         </div>
@@ -1129,8 +1152,6 @@
         </button>
     </nav>
 
-    <!-- SheetJS for XLSX / CSV processing (Local with CDN fallback) -->
-    <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
-    <script src="script.js?v=5.1"></script>
+    <script src="script.js?v=5.2"></script>
 </body>
 </html>

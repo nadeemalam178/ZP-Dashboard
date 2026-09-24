@@ -1,0 +1,13 @@
+{
+  "name": "zp-dashboard",
+  "version": "5.2.0",
+  "private": true,
+  "scripts": {
+    "export": "node scripts/export_sheets.js",
+    "build": "node scripts/export_sheets.js",
+    "start": "npx serve ."
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
+}

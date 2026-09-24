@@ -12,6 +12,17 @@ let pkData = [];
 let allSeatNumbers = [];
 let currentActiveView = 'dashboard';
 
+// Static Data Architecture State
+let dashboardSummary = null;
+let allSeatsCatalog = [];
+let lastFilteredCandidates = [];
+let currentTablePage = 1;
+let tablePageSize = 25;
+const zoneDetailsCache = new Map();
+let analyticsViewData = null;
+let gapViewData = null;
+let auditViewData = null;
+
 // High-performance debounce utility for responsive UI
 function debounce(fn, delay = 120) {
     let timer = null;
@@ -366,6 +377,7 @@ document.addEventListener('click', (e) => {
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
     initMultiSelectFilters();
+    initPaginationControls();
     loadData(false);
 });
 
@@ -382,6 +394,7 @@ function initMultiSelectFilters() {
         { value: 'gap', label: '0 Candidates (Gap)' }
     ]);
     msCandidateStatus.onChange = () => {
+        currentTablePage = 1;
         selectedSeatNumber = '';
         if (seatSearch) seatSearch.value = '';
         updateActiveKPICard();
@@ -396,6 +409,7 @@ function initMultiSelectFilters() {
         { value: 'otherParty', label: 'Other Parties (BJP/RJD/JDU)' }
     ]);
     msIncumbent.onChange = () => {
+        currentTablePage = 1;
         selectedSeatNumber = '';
         if (seatSearch) seatSearch.value = '';
         renderDashboard();
@@ -404,6 +418,7 @@ function initMultiSelectFilters() {
 
     msZone = new MultiSelect('msZone', 'All Zones', 'badgeZone');
     msZone.onChange = () => {
+        currentTablePage = 1;
         selectedSeatNumber = '';
         if (seatSearch) seatSearch.value = '';
         updateFilters('zone');
@@ -413,6 +428,7 @@ function initMultiSelectFilters() {
 
     msDistrict = new MultiSelect('msDistrict', 'All Districts', 'badgeDistrict');
     msDistrict.onChange = () => {
+        currentTablePage = 1;
         selectedSeatNumber = '';
         if (seatSearch) seatSearch.value = '';
         updateFilters('district');
@@ -422,6 +438,7 @@ function initMultiSelectFilters() {
 
     msPC = new MultiSelect('msPC', 'All PCs', 'badgePC');
     msPC.onChange = () => {
+        currentTablePage = 1;
         selectedSeatNumber = '';
         if (seatSearch) seatSearch.value = '';
         updateFilters('pc');
@@ -431,6 +448,7 @@ function initMultiSelectFilters() {
 
     msAC = new MultiSelect('msAC', 'All ACs', 'badgeAC');
     msAC.onChange = () => {
+        currentTablePage = 1;
         selectedSeatNumber = '';
         if (seatSearch) seatSearch.value = '';
         updateFilters('ac');
@@ -440,6 +458,7 @@ function initMultiSelectFilters() {
 
     msBlock = new MultiSelect('msBlock', 'All Blocks', 'badgeBlock');
     msBlock.onChange = () => {
+        currentTablePage = 1;
         selectedSeatNumber = '';
         if (seatSearch) seatSearch.value = '';
         renderDashboard();
@@ -448,6 +467,7 @@ function initMultiSelectFilters() {
 
     msReservation = new MultiSelect('msReservation', 'All Reservations', 'badgeReservation');
     msReservation.onChange = () => {
+        currentTablePage = 1;
         selectedSeatNumber = '';
         if (seatSearch) seatSearch.value = '';
         renderDashboard();
@@ -566,146 +586,304 @@ function applyDashboardPayload(payload) {
 }
 
 /**
- * Data Loader: Fast boot with Stale-While-Revalidate architecture.
- * Renders instantly from verified cache (<50ms), then automatically revalidates
- * against live Google Sheets if cache is older than TTL or during explicit sync.
+ * =========================================================================
+ * STATIC DATA ARCHITECTURE: Fast CDN-backed Data Loader
+ * Pipeline: Google Sheets -> Export Script -> Static JSON Files -> Vercel CDN
+ * =========================================================================
+ */
+
+function applySummaryData(summary) {
+    if (!summary) return;
+
+    // 1. Instant KPI Cards Render
+    if (summary.kpi) {
+        const kpi = summary.kpi;
+        if (kpiSeats) kpiSeats.textContent = kpi.totalSeats ?? '-';
+        if (kpiUnique) kpiUnique.textContent = kpi.seatsWithCandidates ?? '-';
+        if (kpiMulti) kpiMulti.textContent = kpi.seats2Plus ?? '-';
+        if (kpiThree) kpiThree.textContent = kpi.seats3Plus ?? '-';
+        if (kpiGap) kpiGap.textContent = kpi.gapSeats ?? '-';
+        if (kpiTotal) kpiTotal.textContent = kpi.totalCandidates ?? '-';
+
+        const chipZones = document.getElementById('kpi-chip-zones');
+        if (chipZones) chipZones.textContent = `${summary.zonesSummary?.length || 9} Zones`;
+        const subDistricts = document.getElementById('kpi-subtext-districts');
+        if (subDistricts) subDistricts.textContent = `${summary.districtsSummary?.length || 38} Districts`;
+        const chipCoverage = document.getElementById('kpi-chip-coverage');
+        if (chipCoverage && kpi.overallCompletionPct) chipCoverage.textContent = `${kpi.overallCompletionPct}%`;
+    }
+
+    // 2. Zone Bifurcation Table Render
+    if (zoneTableBody && summary.zonesSummary) {
+        const zoneRows = summary.zonesSummary.map(z => `
+            <tr class="bif-row" data-zone="${escapeHtml(z.zone)}" style="cursor: pointer;">
+                <td><strong>${escapeHtml(z.zone)}</strong></td>
+                <td>${z.districtsCount}</td>
+                <td><strong>${z.totalSeats}</strong></td>
+                <td><span class="count-badge count-identified">${z.seatsWithCandidates}</span></td>
+                <td><span class="count-badge count-multi-pill">${z.seats2Plus}</span></td>
+                <td><span class="count-badge count-three-pill">${z.seats3Plus}</span></td>
+                <td><span class="gap-badge ${z.gap > 0 ? 'has-gap' : 'no-gap'}">${z.gap}</span></td>
+                <td><strong>${z.totalCandidates}</strong></td>
+            </tr>
+        `);
+        zoneTableBody.innerHTML = zoneRows.join('');
+    }
+
+    // 3. District Bifurcation Table Render
+    if (districtTableBody && summary.districtsSummary) {
+        const districtRows = summary.districtsSummary.map(d => {
+            if (d.chairman || d.viceChairman) {
+                chairmanMap.set(d.district, {
+                    district: d.district,
+                    chairman: d.chairman || '',
+                    viceChairman: d.viceChairman || ''
+                });
+            }
+            return `
+                <tr class="bif-row" data-district="${escapeHtml(d.district)}" data-zone="${escapeHtml(d.zone || '')}" style="cursor: pointer;">
+                    <td><strong>${escapeHtml(d.district)}</strong></td>
+                    <td>${escapeHtml(d.zone || '-')}</td>
+                    <td>${d.chairman ? `<span class="chairman-badge-sm">👑 ${escapeHtml(d.chairman)}</span>` : '-'}</td>
+                    <td>${d.viceChairman ? `<span class="vice-chairman-badge-sm">${escapeHtml(d.viceChairman)}</span>` : '-'}</td>
+                    <td><strong>${d.totalSeats}</strong></td>
+                    <td><span class="count-badge count-identified">${d.seatsWithCandidates}</span></td>
+                    <td><span class="count-badge count-multi-pill">${d.seats2Plus}</span></td>
+                    <td><span class="count-badge count-three-pill">${d.seats3Plus}</span></td>
+                    <td><span class="gap-badge ${d.gap > 0 ? 'has-gap' : 'no-gap'}">${d.gap}</span></td>
+                    <td><strong>${d.totalCandidates}</strong></td>
+                </tr>
+            `;
+        });
+        districtTableBody.innerHTML = districtRows.join('');
+        initBifurcationDelegation();
+    }
+
+    // 4. Reservation Chips Render
+    if (reservationChips && summary.reservationCounts) {
+        const sortedRes = Object.entries(summary.reservationCounts).sort((a, b) => b[1] - a[1]);
+        reservationChips.innerHTML = sortedRes.map(([res, count]) => {
+            const badgeClass = getReservationBadgeClass(res);
+            return `<div class="res-chip"><span class="reservation-badge ${badgeClass}">${escapeHtml(res)}</span> <span class="res-count">${count}</span></div>`;
+        }).join('');
+        if (reservationBreakdown) reservationBreakdown.style.display = 'block';
+    }
+
+    // 5. Populate Multi-Select Options
+    if (summary.filterOptions) {
+        const fo = summary.filterOptions;
+        if (msZone && fo.zones) msZone.setOptions(fo.zones.map(z => ({ value: z, label: z })));
+        if (msDistrict && fo.districts) msDistrict.setOptions(fo.districts.map(d => ({ value: d, label: d })));
+        if (msPC && fo.pcs) msPC.setOptions(fo.pcs.map(p => ({ value: p, label: p })));
+        if (msAC && fo.acs) msAC.setOptions(fo.acs.map(a => ({ value: a, label: a })));
+        if (msBlock && fo.blocks) msBlock.setOptions(fo.blocks.map(b => ({ value: b, label: b })));
+        if (msReservation && fo.reservations) msReservation.setOptions(fo.reservations.map(r => ({ value: r, label: r })));
+    }
+
+    if (summary.seatNumbers) {
+        allSeatNumbers = summary.seatNumbers;
+    }
+}
+
+/**
+ * Expands compact statewide catalog into candidate rows for table & filters.
+ */
+function expandCatalogToCandidates(catalog) {
+    if (!catalog || !Array.isArray(catalog)) return [];
+    const rows = [];
+    incumbentMap.clear();
+
+    catalog.forEach(seatObj => {
+        const seat = String(seatObj.seat || '').trim();
+        const zone = String(seatObj.zone || '').trim();
+        const district = String(seatObj.district || '').trim();
+        const pc = String(seatObj.pc || '').trim();
+        const ac = String(seatObj.ac || '').trim();
+        const block = String(seatObj.block || '').trim();
+        const panchayat = String(seatObj.panchayat || '').trim();
+        const reservation = String(seatObj.reservation || '').trim();
+
+        if (seatObj.chairman) {
+            chairmanMap.set(district, {
+                district: district,
+                chairman: seatObj.chairman.name || '',
+                viceChairman: seatObj.chairman.viceChairman || '',
+                party: seatObj.chairman.party || ''
+            });
+        }
+
+        if (seatObj.incumbent && (seatObj.incumbent.name || seatObj.incumbent.incumbentName)) {
+            const inc = seatObj.incumbent;
+            incumbentMap.set(seat, {
+                district: district,
+                pc: pc,
+                ac: ac,
+                block: block,
+                panchayat: panchayat,
+                seatNumber: seat,
+                chairman: seatObj.chairman?.name || '',
+                viceChairman: seatObj.chairman?.viceChairman || '',
+                incumbentName: inc.name || inc.incumbentName || '',
+                party: inc.party || '',
+                inFinalList: inc.inFinalList || '',
+                incumbentNumber: inc.phone || inc.incumbentNumber || '',
+                currentReservation: reservation,
+                probableReservation: inc.probableReservation || '',
+                callingStatus: inc.callingStatus || '',
+                meetingStatus: inc.meetingStatus || '',
+                wantContestJSP: inc.wantContestJSP || '',
+                onboardingStatus: inc.onboardingStatus || '',
+                remarks: inc.remarks || '',
+                runnerupName: inc.runnerupName || '',
+                runnerupNumber: inc.runnerupNumber || ''
+            });
+        }
+
+        if (seatObj.candidates && seatObj.candidates.length > 0) {
+            seatObj.candidates.forEach((cand, idx) => {
+                rows.push({
+                    'ZP Seat Number': seat,
+                    'Zone': zone,
+                    'District': district,
+                    'PC': pc,
+                    'AC': ac,
+                    'Block': block,
+                    'Panchayat': panchayat,
+                    'Seat Reservation Status': reservation,
+                    'Probable ZP Candidate Name': cand.name,
+                    'Caste': cand.caste || '',
+                    'Category': cand.category || '',
+                    'Age': cand.age || '',
+                    'Contact No': cand.phone || '',
+                    'JS Designation': cand.jsDesignation || '',
+                    'Recommendation Source Categories': cand.source || '',
+                    'Brief Profile': cand.profile || '',
+                    'Remarks': cand.remarks || '',
+                    'PK Feedback': cand.pkFeedback || '',
+                    'Candidate Status': seatObj.candidates.length >= 3 ? 'threePlus' : (seatObj.candidates.length >= 2 ? 'multi' : 'single'),
+                    'ZP Chairman': seatObj.chairman?.name || '',
+                    'ZP Vice Chairman': seatObj.chairman?.viceChairman || '',
+                    '_seatObj': seatObj,
+                    '_candIdx': idx
+                });
+            });
+        } else {
+            // Gap seat (0 candidates identified)
+            rows.push({
+                'ZP Seat Number': seat,
+                'Zone': zone,
+                'District': district,
+                'PC': pc,
+                'AC': ac,
+                'Block': block,
+                'Panchayat': panchayat,
+                'Seat Reservation Status': reservation,
+                'Probable ZP Candidate Name': '',
+                'Caste': '',
+                'Category': '',
+                'Age': '',
+                'Contact No': '',
+                'JS Designation': '',
+                'Recommendation Source Categories': '',
+                'Brief Profile': '',
+                'Remarks': '',
+                'PK Feedback': '',
+                'Candidate Status': 'gap',
+                'ZP Chairman': seatObj.chairman?.name || '',
+                'ZP Vice Chairman': seatObj.chairman?.viceChairman || '',
+                '_seatObj': seatObj,
+                '_candIdx': -1
+            });
+        }
+    });
+
+    return rows;
+}
+
+/**
+ * Lazy loads zone-specific detailed candidate profiles on demand.
+ */
+async function loadSeatZoneDetails(seatNum, zone) {
+    if (!zone) return null;
+    const slug = zone.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!zoneDetailsCache.has(slug)) {
+        try {
+            const resp = await fetch(`data/details/${slug}.json?v=${APP_DATA_VERSION}`);
+            if (resp.ok) {
+                const json = await resp.json();
+                zoneDetailsCache.set(slug, json);
+            }
+        } catch (e) {
+            console.warn(`Could not load details for zone ${slug}:`, e);
+            return null;
+        }
+    }
+    const zoneMap = zoneDetailsCache.get(slug);
+    return zoneMap ? zoneMap[seatNum] : null;
+}
+
+/**
+ * Static Data Loader: Loads lightweight summary (<5KB) first for instant render,
+ * then compact catalog (~96KB gzipped) for directory table.
  */
 async function loadData(forceReload = false) {
     if (isSyncingData && !forceReload) return;
     const syncBadge = document.getElementById('syncStatusBadge');
-    let loadedFromCache = false;
-    let cacheTimestamp = 0;
 
     try {
-        // 1. Instant Boot from Verified IndexedDB or data_cache.json
-        if (!forceReload) {
-            const idbData = await getCachedDashboardPayload();
-            if (idbData && idbData.candidatesData && idbData.candidatesData.length > 0) {
-                applyDashboardPayload(idbData);
-                loadedFromCache = true;
-                cacheTimestamp = idbData.timestamp || 0;
-                if (syncBadge) {
-                    const numZones = getUniqueValues(candidatesData, 'Zone').length;
-                    const numDistricts = getUniqueValues(candidatesData, 'District').length;
-                    const ageMins = Math.round((Date.now() - cacheTimestamp) / 60000);
-                    syncBadge.innerHTML = ageMins > 0 
-                        ? `⚡ Instant Cache (${ageMins}m ago, ${numZones} Zones, ${numDistricts} Districts)`
-                        : `⚡ Instant Cache (${numZones} Zones, ${numDistricts} Districts)`;
-                    syncBadge.classList.remove('offline');
-                }
-            } else {
-                // Try fetching local data_cache.json fallback (super fast ~30ms)
-                try {
-                    const localResp = await fetch(`data_cache.json?v=${APP_DATA_VERSION}&_t=${Date.now()}`, { cache: 'no-cache' });
-                    if (localResp.ok) {
-                        const localData = await localResp.json();
-                        if (localData && localData.candidatesData && localData.candidatesData.length > 0) {
-                            applyDashboardPayload(localData);
-                            await saveCachedDashboardPayload(localData);
-                            loadedFromCache = true;
-                            cacheTimestamp = localData.timestamp || Date.now();
-                            if (syncBadge) {
-                                const numZones = getUniqueValues(candidatesData, 'Zone').length;
-                                const numDistricts = getUniqueValues(candidatesData, 'District').length;
-                                syncBadge.innerHTML = `⚡ Fast Boot (${numZones} Zones, ${numDistricts} Districts)`;
-                                syncBadge.classList.remove('offline');
-                            }
-                        }
-                    }
-                } catch (cacheErr) {
-                    console.warn("Could not fetch local cache fallback:", cacheErr);
-                }
-            }
-        }
-
-        // Stale-While-Revalidate: If we have a fresh cache (<10m) and not forcing reload, we're done!
-        const isCacheStale = !loadedFromCache || (Date.now() - cacheTimestamp > CACHE_TTL_MS);
-        if (loadedFromCache && !isCacheStale) {
-            if (loadingIndicator) loadingIndicator.classList.remove('show');
-            return;
-        }
-
-        // If not loaded from cache (first time or forceReload), show spinner.
-        // If loaded from cache but stale, do NOT block user with spinner; revalidate quietly in background!
-        if (!loadedFromCache) {
-            if (loadingIndicator) loadingIndicator.classList.add('show');
-        }
-
+        if (loadingIndicator) loadingIndicator.classList.add('show');
         isSyncingData = true;
+
         if (syncBadge) {
-            syncBadge.innerHTML = '🔄 Syncing Live Google Sheets...';
+            syncBadge.innerHTML = '⚡ Loading Static Data...';
             syncBadge.classList.remove('offline');
         }
 
-        // 2. Fetch live Google Sheets in parallel over the network
-        candidatesData = [];
-        incumbentMap.clear();
-        chairmanMap.clear();
-        runnerUpMap.clear();
-        pkData = [];
+        const cacheBuster = forceReload ? `&_t=${Date.now()}` : '';
 
-        let liveSuccessCount = 0;
-        const fetchPromises = GOOGLE_SHEET_URLS.map(async (sheet) => {
-            const liveUrl = `${sheet.url}&_nocache=${Date.now()}`;
-            const resp = await fetch(liveUrl, { cache: 'no-store' });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status} on ${sheet.name}`);
-            const arrayBuffer = await resp.arrayBuffer();
-            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-            parseWorkbook(workbook, sheet.name);
-            liveSuccessCount++;
-        });
+        // Step 1: Load lightweight summary.json (KPIs, Bifurcation, Autocomplete, Filters)
+        const summaryResp = await fetch(`data/summary.json?v=${APP_DATA_VERSION}${cacheBuster}`);
+        if (!summaryResp.ok) throw new Error(`HTTP ${summaryResp.status} on data/summary.json`);
+        dashboardSummary = await summaryResp.json();
 
-        await Promise.allSettled(fetchPromises);
-
-        if (candidatesData.length === 0) {
-            throw new Error("Unable to connect to Google Sheets. Please verify your internet connection.");
+        // Instant UI population from summary (<30ms)
+        applySummaryData(dashboardSummary);
+        if (syncBadge) {
+            syncBadge.innerHTML = `⚡ Static CDN (v${dashboardSummary.version || '5.2'}, ${dashboardSummary.zonesSummary?.length || 9} Zones, ${dashboardSummary.districtsSummary?.length || 38} Districts)`;
+            syncBadge.classList.remove('offline');
         }
 
-        populateIncumbentsFromCandidates();
-        allSeatNumbers = getUniqueValues(candidatesData, 'ZP Seat Number');
-        populateInitialFilters();
+        // Step 2: Stream compact seats catalog for directory table
+        const catalogResp = await fetch(`data/seats_catalog.json?v=${APP_DATA_VERSION}${cacheBuster}`);
+        if (!catalogResp.ok) throw new Error(`HTTP ${catalogResp.status} on data/seats_catalog.json`);
+        allSeatsCatalog = await catalogResp.json();
+
+        // Expand to candidatesData format
+        candidatesData = expandCatalogToCandidates(allSeatsCatalog);
+        allSeatNumbers = dashboardSummary.seatNumbers || getUniqueValues(candidatesData, 'ZP Seat Number');
+
+        // Full render of directory table & update KPI active cards
         updateActiveKPICard();
         renderDashboard();
         if (typeof auditSheetData === 'function') auditSheetData();
 
-        // Save fresh payload to IndexedDB for next instant boot
-        const freshPayload = {
-            version: APP_DATA_VERSION,
-            timestamp: Date.now(),
-            lastSync: new Date().toLocaleString(),
-            candidatesData: candidatesData,
-            incumbentMap: Array.from(incumbentMap.entries()),
-            chairmanMap: Array.from(chairmanMap.entries()),
-            runnerUpMap: Array.from(runnerUpMap.entries()),
-            pkData: pkData
-        };
-        await saveCachedDashboardPayload(freshPayload);
-
-        // Update Sync Status Badge
-        if (syncBadge) {
-            const numZones = getUniqueValues(candidatesData, 'Zone').length;
-            const numDistricts = getUniqueValues(candidatesData, 'District').length;
-            syncBadge.innerHTML = `● Live Synced (${numZones} Zones, ${numDistricts} Districts)`;
-            syncBadge.classList.remove('offline');
-        }
     } catch (error) {
-        console.error("Error loading live Google Sheets:", error);
-        if (syncBadge) {
-            syncBadge.innerHTML = '⚠️ Sync Notice (Check Network)';
-            syncBadge.classList.add('offline');
+        console.error("Static data load error, trying fallback:", error);
+        // Fallback to data_cache.json if available
+        try {
+            const fallbackResp = await fetch(`data_cache.json?v=${APP_DATA_VERSION}`);
+            if (fallbackResp.ok) {
+                const fallbackData = await fallbackResp.json();
+                applyDashboardPayload(fallbackData);
+                if (syncBadge) syncBadge.innerHTML = '⚡ Cache Active (Offline)';
+                return;
+            }
+        } catch (fbErr) {
+            console.error("Fallback error:", fbErr);
         }
-        // Fallback to cache if available
-        if (candidatesData.length === 0) {
-            try {
-                const localResp = await fetch(`data_cache.json?v=${APP_DATA_VERSION}&_t=${Date.now()}`);
-                if (localResp.ok) {
-                    const localData = await localResp.json();
-                    applyDashboardPayload(localData);
-                    if (syncBadge) syncBadge.innerHTML = '⚡ Cache Active (Offline)';
-                    return;
-                }
-            } catch (e) {}
-            alert(`Google Sheets Sync:\n${error.message}\n\nPlease click "Sync Live Google Sheets" to retry.`);
+        if (syncBadge) {
+            syncBadge.innerHTML = '⚠️ Data Load Error';
+            syncBadge.classList.add('offline');
         }
     } finally {
         isSyncingData = false;
@@ -2026,8 +2204,21 @@ let debouncedSeatSuggest = null;
 
 // Top Universal Search Listeners (Middle Bar Only)
 if (topUniversalSearch) {
-    debouncedUniversalSuggest = debounce((query) => {
+    debouncedUniversalSuggest = debounce(async (query) => {
         if (!query) return;
+        try {
+            // Server-side API search (via Vercel Serverless Function & search index)
+            const apiResp = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+            if (apiResp.ok) {
+                const results = await apiResp.json();
+                if (Array.isArray(results) && results.length > 0) {
+                    renderUniversalDropdown(results, query, universalSearchDropdown);
+                    return;
+                }
+            }
+        } catch (e) {
+            // Fallback to client-side calculation
+        }
         const results = buildUniversalSuggestions(query);
         renderUniversalDropdown(results, query, universalSearchDropdown);
     }, 120);
@@ -2839,6 +3030,7 @@ function getPartyBadgeClass(party) {
 // SEAT TABLE: Compact, names only, click to expand
 // ===========================================
 function renderSeatTable(data) {
+    lastFilteredCandidates = data;
     candidateTableBody.innerHTML = '';
 
     // Active status filter indicator
@@ -2879,25 +3071,41 @@ function renderSeatTable(data) {
     if (data.length === 0) {
         candidateTableBody.innerHTML = '<tr><td colspan="7" class="no-results-cell">No matching ZP seats or candidates found for selected filters</td></tr>';
         resultCount.textContent = '0 seats';
+        const paginationBar = document.getElementById('tablePaginationBar');
+        if (paginationBar) paginationBar.style.display = 'none';
         return;
     }
 
     // Group by ZP Seat Number
     const seatsMap = new Map();
+    let totalCandidateCount = 0;
     data.forEach(row => {
         const seat = String(row['ZP Seat Number']).trim();
         if (!seat || seat === 'undefined') return;
         if (!seatsMap.has(seat)) seatsMap.set(seat, []);
         seatsMap.get(seat).push(row);
+        if (row['Probable ZP Candidate Name'] && row['Probable ZP Candidate Name'] !== 'undefined') {
+            totalCandidateCount++;
+        }
     });
 
     const seatCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
     const sortedSeats = Array.from(seatsMap.keys()).sort(seatCollator.compare);
+    const totalMatchingSeats = sortedSeats.length;
 
-    let totalCandidateCount = 0;
+    // Pagination calculations (25, 50, 100, All)
+    const effectivePageSize = tablePageSize === 'all' ? totalMatchingSeats : parseInt(tablePageSize, 10);
+    const totalPages = effectivePageSize > 0 ? Math.ceil(totalMatchingSeats / effectivePageSize) : 1;
+    if (currentTablePage > totalPages) currentTablePage = totalPages;
+    if (currentTablePage < 1) currentTablePage = 1;
+
+    const startIndex = tablePageSize === 'all' ? 0 : (currentTablePage - 1) * effectivePageSize;
+    const endIndex = tablePageSize === 'all' ? totalMatchingSeats : Math.min(startIndex + effectivePageSize, totalMatchingSeats);
+    const pageSeats = sortedSeats.slice(startIndex, endIndex);
+
     const trList = [];
 
-    sortedSeats.forEach(seat => {
+    pageSeats.forEach(seat => {
         const rowsForSeat = seatsMap.get(seat);
         const seatInfo = rowsForSeat[0];
         const candidateRows = rowsForSeat.filter(row => String(row['Probable ZP Candidate Name']).trim());
@@ -2947,7 +3155,6 @@ function renderSeatTable(data) {
                     const source = String(row['Recommendation Source Categories'] || '').trim();
                     const profile = String(row['Brief Profile'] || '').trim();
                     const remarks = String(row['Remarks'] || '').trim();
-                    totalCandidateCount++;
 
                     return `
                         <div class="detailed-candidate-card" data-seat="${escapeHtml(seat)}" data-idx="${idx}" title="Click to view complete details of ${escapeHtml(name)}">
@@ -2984,7 +3191,6 @@ function renderSeatTable(data) {
                     const isDup = nameCounts[name.toLowerCase()] > 1;
                     const distinguishHint = isDup ? (caste && caste !== '-' ? ` (${caste})` : (phone && phone !== '-' ? ` (${phone.slice(-4)})` : ` (#${idx + 1})`)) : '';
 
-                    totalCandidateCount++;
                     return `<span class="candidate-tag" data-seat="${escapeHtml(seat)}" data-idx="${idx}" title="Click to view full details of ${escapeHtml(name)}${caste ? ' • Caste: ' + escapeHtml(caste) : ''}${phone ? ' • 📞 ' + escapeHtml(phone) : ''}">
                         <span class="candidate-num">${idx + 1}</span>
                         <span class="candidate-name-text">${escapeHtml(name)}${distinguishHint ? `<span class="cand-distinguish-hint" style="font-weight: 500; opacity: 0.85; font-size: 0.82em; margin-left: 3px; color: var(--accent-light, #38bdf8);">${escapeHtml(distinguishHint)}</span>` : ''}</span>
@@ -3014,8 +3220,129 @@ function renderSeatTable(data) {
     });
 
     candidateTableBody.innerHTML = trList.join('');
-    resultCount.textContent = `${totalCandidateCount} candidate${totalCandidateCount !== 1 ? 's' : ''} in ${sortedSeats.length} seat${sortedSeats.length !== 1 ? 's' : ''}`;
+    resultCount.textContent = `${totalCandidateCount} candidate${totalCandidateCount !== 1 ? 's' : ''} in ${totalMatchingSeats} seat${totalMatchingSeats !== 1 ? 's' : ''}`;
+    
+    renderPaginationBar(totalMatchingSeats, effectivePageSize, currentTablePage, totalPages, startIndex, endIndex);
     initCandidateTableDelegation();
+    initPaginationControls();
+}
+
+function renderPaginationBar(totalSeats, pageSize, currentPage, totalPages, startIdx, endIdx) {
+    const paginationBar = document.getElementById('tablePaginationBar');
+    if (!paginationBar) return;
+
+    if (totalSeats === 0) {
+        paginationBar.style.display = 'none';
+        return;
+    }
+    paginationBar.style.display = 'flex';
+
+    const infoEl = document.getElementById('paginationInfo');
+    if (infoEl) {
+        if (tablePageSize === 'all') {
+            infoEl.textContent = `Showing all ${totalSeats} seats`;
+        } else {
+            infoEl.textContent = `Showing ${startIdx + 1}–${endIdx} of ${totalSeats} seats`;
+        }
+    }
+
+    const prevBtn = document.getElementById('pgPrevBtn');
+    const nextBtn = document.getElementById('pgNextBtn');
+    if (prevBtn) {
+        prevBtn.disabled = currentPage <= 1 || tablePageSize === 'all';
+    }
+    if (nextBtn) {
+        nextBtn.disabled = currentPage >= totalPages || tablePageSize === 'all';
+    }
+
+    const pgNumbers = document.getElementById('pgPageNumbers');
+    if (pgNumbers) {
+        if (tablePageSize === 'all' || totalPages <= 1) {
+            pgNumbers.innerHTML = '';
+        } else {
+            const pageButtons = [];
+            const maxVisible = 5;
+            let start = Math.max(1, currentPage - 2);
+            let end = Math.min(totalPages, start + maxVisible - 1);
+            if (end - start < maxVisible - 1) {
+                start = Math.max(1, end - maxVisible + 1);
+            }
+
+            if (start > 1) {
+                pageButtons.push(`<button class="pg-num-btn" data-page="1">1</button>`);
+                if (start > 2) pageButtons.push(`<span class="pg-ellipsis">…</span>`);
+            }
+
+            for (let i = start; i <= end; i++) {
+                pageButtons.push(`<button class="pg-num-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`);
+            }
+
+            if (end < totalPages) {
+                if (end < totalPages - 1) pageButtons.push(`<span class="pg-ellipsis">…</span>`);
+                pageButtons.push(`<button class="pg-num-btn" data-page="${totalPages}">${totalPages}</button>`);
+            }
+
+            pgNumbers.innerHTML = pageButtons.join('');
+        }
+    }
+}
+
+function initPaginationControls() {
+    const prevBtn = document.getElementById('pgPrevBtn');
+    const nextBtn = document.getElementById('pgNextBtn');
+    const pgNumbers = document.getElementById('pgPageNumbers');
+    const pgPageSize = document.getElementById('pgPageSize');
+
+    if (prevBtn && !prevBtn._init) {
+        prevBtn._init = true;
+        prevBtn.addEventListener('click', () => {
+            if (currentTablePage > 1) {
+                currentTablePage--;
+                renderSeatTable(lastFilteredCandidates);
+                scrollTableToTop();
+            }
+        });
+    }
+
+    if (nextBtn && !nextBtn._init) {
+        nextBtn._init = true;
+        nextBtn.addEventListener('click', () => {
+            currentTablePage++;
+            renderSeatTable(lastFilteredCandidates);
+            scrollTableToTop();
+        });
+    }
+
+    if (pgNumbers && !pgNumbers._init) {
+        pgNumbers._init = true;
+        pgNumbers.addEventListener('click', (e) => {
+            const btn = e.target.closest('.pg-num-btn');
+            if (!btn) return;
+            const targetPage = parseInt(btn.dataset.page, 10);
+            if (targetPage && targetPage !== currentTablePage) {
+                currentTablePage = targetPage;
+                renderSeatTable(lastFilteredCandidates);
+                scrollTableToTop();
+            }
+        });
+    }
+
+    if (pgPageSize && !pgPageSize._init) {
+        pgPageSize._init = true;
+        pgPageSize.addEventListener('change', (e) => {
+            tablePageSize = e.target.value === 'all' ? 'all' : parseInt(e.target.value, 10);
+            currentTablePage = 1;
+            renderSeatTable(lastFilteredCandidates);
+            scrollTableToTop();
+        });
+    }
+}
+
+function scrollTableToTop() {
+    const tableSection = document.getElementById('seatDirectorySection');
+    if (tableSection) {
+        tableSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 function initCandidateTableDelegation() {
@@ -3039,7 +3366,7 @@ function initCandidateTableDelegation() {
 // ===========================================
 // CANDIDATE DETAIL MODAL
 // ===========================================
-function showCandidateDetail(seatNum, idx) {
+async function showCandidateDetail(seatNum, idx) {
     const rowsForSeat = candidatesData.filter(row =>
         String(row['ZP Seat Number']).trim() === seatNum
     );
@@ -3047,8 +3374,34 @@ function showCandidateDetail(seatNum, idx) {
 
     if (idx >= candidateRows.length && candidateRows.length > 0) return;
 
-    const row = candidateRows[idx] || {};
+    let row = candidateRows[idx] || {};
     const seatInfo = rowsForSeat[0] || {};
+    const zone = row['Zone'] || seatInfo['Zone'] || '';
+
+    // If full profile or remarks are missing, lazy load zone details on demand
+    if ((!row['Brief Profile'] || row['Brief Profile'] === '-') && zone) {
+        const fullDetails = await loadSeatZoneDetails(seatNum, zone);
+        if (fullDetails) {
+            if (fullDetails.candidates && fullDetails.candidates[idx]) {
+                const fc = fullDetails.candidates[idx];
+                row['Brief Profile'] = fc.profile || row['Brief Profile'];
+                row['Remarks'] = fc.remarks || row['Remarks'];
+                row['PK Feedback'] = fc.pkFeedback || row['PK Feedback'];
+                if (fc.contact) row['Contact No'] = fc.contact;
+                if (fc.caste) row['Caste'] = fc.caste;
+                if (fc.age) row['Age'] = fc.age;
+                if (fc.category) row['Category'] = fc.category;
+            }
+            if (fullDetails.incumbent) {
+                const currentInc = incumbentMap.get(seatNum) || {};
+                incumbentMap.set(seatNum, {
+                    ...currentInc,
+                    ...fullDetails.incumbent
+                });
+            }
+        }
+    }
+
     const inc = incumbentMap.get(seatNum);
 
     const name = String(row['Probable ZP Candidate Name'] || '').trim() || '-';
@@ -3062,7 +3415,6 @@ function showCandidateDetail(seatNum, idx) {
     const remarks = String(row['Remarks'] || '').trim() || '-';
     const pkFeedback = String(row['PK Feedback'] || '').trim() || '-';
     const reservation = String(seatInfo['Seat Reservation Status'] || '').trim();
-    const zone = row['Zone'] || seatInfo['Zone'] || '-';
     const district = row['District'] || seatInfo['District'] || '-';
     const pc = row['PC'] || seatInfo['PC'] || '-';
     const ac = row['AC'] || seatInfo['AC'] || '-';

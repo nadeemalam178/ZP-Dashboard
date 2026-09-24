@@ -4,11 +4,12 @@
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
 
-/data_cache.json
-  Cache-Control: no-cache, no-store, must-revalidate
+/data/*
+  Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
+  Access-Control-Allow-Origin: *
 
 /script.js
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 
 /style.css
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
