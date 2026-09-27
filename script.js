@@ -823,67 +823,147 @@ async function loadSeatZoneDetails(seatNum, zone) {
 }
 
 /**
- * Static Data Loader: Loads lightweight summary (<5KB) first for instant render,
- * then compact catalog (~96KB gzipped) for directory table.
+ * Data Loader: Stale-While-Revalidate architecture with Live Google Sheets Sync.
+ * Renders instantly from verified cache (<50ms), and fetches live from
+ * GOOGLE_SHEET_URLS whenever user clicks Refresh (forceReload = true) or when cache is stale.
  */
 async function loadData(forceReload = false) {
     if (isSyncingData && !forceReload) return;
     const syncBadge = document.getElementById('syncStatusBadge');
+    let loadedFromCache = false;
+    let cacheTimestamp = 0;
 
     try {
-        if (loadingIndicator) loadingIndicator.classList.add('show');
+        // 1. Instant Boot from Verified IndexedDB or data_cache.json
+        if (!forceReload) {
+            const idbData = await getCachedDashboardPayload();
+            if (idbData && idbData.candidatesData && idbData.candidatesData.length > 0) {
+                applyDashboardPayload(idbData);
+                loadedFromCache = true;
+                cacheTimestamp = idbData.timestamp || 0;
+                if (syncBadge) {
+                    const numZones = getUniqueValues(candidatesData, 'Zone').length;
+                    const numDistricts = getUniqueValues(candidatesData, 'District').length;
+                    const ageMins = Math.round((Date.now() - cacheTimestamp) / 60000);
+                    syncBadge.innerHTML = ageMins > 0 
+                        ? `⚡ Instant Cache (${ageMins}m ago, ${numZones} Zones, ${numDistricts} Districts)`
+                        : `⚡ Instant Cache (${numZones} Zones, ${numDistricts} Districts)`;
+                    syncBadge.classList.remove('offline');
+                }
+            } else {
+                // Try fetching local data_cache.json fallback (super fast ~30ms)
+                try {
+                    const localResp = await fetch(`data_cache.json?v=${APP_DATA_VERSION}&_t=${Date.now()}`, { cache: 'no-cache' });
+                    if (localResp.ok) {
+                        const localData = await localResp.json();
+                        if (localData && localData.candidatesData && localData.candidatesData.length > 0) {
+                            applyDashboardPayload(localData);
+                            await saveCachedDashboardPayload(localData);
+                            loadedFromCache = true;
+                            cacheTimestamp = localData.timestamp || Date.now();
+                            if (syncBadge) {
+                                const numZones = getUniqueValues(candidatesData, 'Zone').length;
+                                const numDistricts = getUniqueValues(candidatesData, 'District').length;
+                                syncBadge.innerHTML = `⚡ Fast Boot (${numZones} Zones, ${numDistricts} Districts)`;
+                                syncBadge.classList.remove('offline');
+                            }
+                        }
+                    }
+                } catch (cacheErr) {
+                    console.warn("Could not fetch local cache fallback:", cacheErr);
+                }
+            }
+        }
+
+        // Stale-While-Revalidate: If we have fresh cache (<10m) and not forcing reload, we're done!
+        const isCacheStale = !loadedFromCache || (Date.now() - cacheTimestamp > CACHE_TTL_MS);
+        if (loadedFromCache && !isCacheStale && !forceReload) {
+            if (loadingIndicator) loadingIndicator.classList.remove('show');
+            return;
+        }
+
+        // If not loaded from cache or user explicitly clicked Refresh, show spinner.
+        // If loaded from cache but stale, revalidate quietly in background without blocking UI.
+        if (!loadedFromCache || forceReload) {
+            if (loadingIndicator) loadingIndicator.classList.add('show');
+        }
+
         isSyncingData = true;
-
         if (syncBadge) {
-            syncBadge.innerHTML = '⚡ Loading Static Data...';
+            syncBadge.innerHTML = '🔄 Syncing Live Google Sheets...';
             syncBadge.classList.remove('offline');
         }
 
-        const cacheBuster = forceReload ? `&_t=${Date.now()}` : '';
+        // 2. Fetch live Google Sheets in parallel over the network
+        candidatesData = [];
+        incumbentMap.clear();
+        chairmanMap.clear();
+        runnerUpMap.clear();
+        pkData = [];
 
-        // Step 1: Load lightweight summary.json (KPIs, Bifurcation, Autocomplete, Filters)
-        const summaryResp = await fetch(`data/summary.json?v=${APP_DATA_VERSION}${cacheBuster}`);
-        if (!summaryResp.ok) throw new Error(`HTTP ${summaryResp.status} on data/summary.json`);
-        dashboardSummary = await summaryResp.json();
+        let liveSuccessCount = 0;
+        const fetchPromises = GOOGLE_SHEET_URLS.map(async (sheet) => {
+            const liveUrl = `${sheet.url}&_nocache=${Date.now()}`;
+            const resp = await fetch(liveUrl, { cache: 'no-store' });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status} on ${sheet.name}`);
+            const arrayBuffer = await resp.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            parseWorkbook(workbook, sheet.name);
+            liveSuccessCount++;
+        });
 
-        // Instant UI population from summary (<30ms)
-        applySummaryData(dashboardSummary);
-        if (syncBadge) {
-            syncBadge.innerHTML = `⚡ Static CDN (v${dashboardSummary.version || '5.2'}, ${dashboardSummary.zonesSummary?.length || 9} Zones, ${dashboardSummary.districtsSummary?.length || 38} Districts)`;
-            syncBadge.classList.remove('offline');
+        await Promise.allSettled(fetchPromises);
+
+        if (candidatesData.length === 0) {
+            throw new Error("Unable to connect to Google Sheets. Please verify your internet connection.");
         }
 
-        // Step 2: Stream compact seats catalog for directory table
-        const catalogResp = await fetch(`data/seats_catalog.json?v=${APP_DATA_VERSION}${cacheBuster}`);
-        if (!catalogResp.ok) throw new Error(`HTTP ${catalogResp.status} on data/seats_catalog.json`);
-        allSeatsCatalog = await catalogResp.json();
-
-        // Expand to candidatesData format
-        candidatesData = expandCatalogToCandidates(allSeatsCatalog);
-        allSeatNumbers = dashboardSummary.seatNumbers || getUniqueValues(candidatesData, 'ZP Seat Number');
-
-        // Full render of directory table & update KPI active cards
+        populateIncumbentsFromCandidates();
+        allSeatNumbers = getUniqueValues(candidatesData, 'ZP Seat Number');
+        populateInitialFilters();
         updateActiveKPICard();
         renderDashboard();
         if (typeof auditSheetData === 'function') auditSheetData();
 
-    } catch (error) {
-        console.error("Static data load error, trying fallback:", error);
-        // Fallback to data_cache.json if available
-        try {
-            const fallbackResp = await fetch(`data_cache.json?v=${APP_DATA_VERSION}`);
-            if (fallbackResp.ok) {
-                const fallbackData = await fallbackResp.json();
-                applyDashboardPayload(fallbackData);
-                if (syncBadge) syncBadge.innerHTML = '⚡ Cache Active (Offline)';
-                return;
+        // Calculate seats with candidates
+        const seatsWithCandidates = new Set();
+        candidatesData.forEach(c => {
+            const name = (c['Probable ZP Candidate Name'] || '').trim();
+            const seat = (c['District'] || '').trim() + ' | ' + (c['ZP Seat Number'] || '').trim();
+            if (name && name !== '-' && name.toLowerCase() !== 'nan' && seat !== ' | ') {
+                seatsWithCandidates.add(seat);
             }
-        } catch (fbErr) {
-            console.error("Fallback error:", fbErr);
-        }
+        });
+
+        // Save fresh payload to IndexedDB for instant boot on next visit
+        const freshPayload = {
+            version: APP_DATA_VERSION,
+            timestamp: Date.now(),
+            lastSync: new Date().toLocaleString(),
+            candidatesData: candidatesData,
+            incumbentMap: Array.from(incumbentMap.entries()),
+            chairmanMap: Array.from(chairmanMap.entries()),
+            runnerUpMap: Array.from(runnerUpMap.entries()),
+            pkData: pkData
+        };
+        await saveCachedDashboardPayload(freshPayload);
+
+        // Update Sync Status Badge with real candidate count
         if (syncBadge) {
-            syncBadge.innerHTML = '⚠️ Data Load Error';
-            syncBadge.classList.add('offline');
+            const numZones = getUniqueValues(candidatesData, 'Zone').length;
+            const numDistricts = getUniqueValues(candidatesData, 'District').length;
+            syncBadge.innerHTML = `● Live Synced (${seatsWithCandidates.size} Seats with Candidates, ${numZones} Zones, ${numDistricts} Districts)`;
+            syncBadge.classList.remove('offline');
+        }
+    } catch (error) {
+        console.error("Error loading live Google Sheets:", error);
+        if (syncBadge) {
+            if (loadedFromCache) {
+                syncBadge.innerHTML = '⚡ Cache Active (Offline)';
+            } else {
+                syncBadge.innerHTML = '⚠️ Google Sheets Offline';
+                syncBadge.classList.add('offline');
+            }
         }
     } finally {
         isSyncingData = false;
