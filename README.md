@@ -11,7 +11,7 @@ An interactive analytics dashboard for **Zila Parishad (ZP)** candidate tracking
   - Gap Seats (0 Candidates Identified)
   - Total Candidates Identified
 - **Zone-wise & District-wise Bifurcation**:
-  - Comparative breakdown across all 9 zones (Champaran, Magadh, Mithilanchal, Munger, Nalanda, Sahabad, Samastipur, Saran, Tirhut) and 33 districts.
+  - Comparative breakdown across all 12 zones (Champaran, Koshi, Magadh, Mithilanchal, Munger, Nalanda, Patna, Sahabad, Samastipur, Saran, Seemanchal, Tirhut) and 38 districts of Bihar.
   - Interactive row click to drill down into any zone or district.
 - **Seat-wise Candidate Directory**:
   - Numbered probable candidate tags (`1`, `2`, `3`, etc.).
@@ -23,7 +23,7 @@ An interactive analytics dashboard for **Zila Parishad (ZP)** candidate tracking
   - Previous/Next candidate navigation for multi-candidate seats.
   - District ZP Chairman indicators.
 - **Live Google Sheet Sync**:
-  - Automatically fetches and parses data directly from Google Sheets using SheetJS.
+  - Automatically fetches and parses data directly across all 4 Google Sheets using SheetJS.
 
 ## 💻 Tech Stack
 

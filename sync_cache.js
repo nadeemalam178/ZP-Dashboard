@@ -52,7 +52,7 @@ async function runSync() {
     console.log(`Seats with identified candidates: ${seatsWithCandidates.size}`);
 
     const payload = {
-        version: 'v5.1_20260918',
+        version: typeof APP_DATA_VERSION !== 'undefined' ? APP_DATA_VERSION : 'v5.2_20261001',
         timestamp: Date.now(),
         lastSync: new Date().toLocaleString(),
         candidatesData: candidatesData,

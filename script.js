@@ -1,7 +1,8 @@
 const GOOGLE_SHEET_URLS = [
     { id: 'sheet1', name: 'Sheet 1 (Champaran, Saran, Sahabad)', url: 'https://docs.google.com/spreadsheets/d/1ZtME2kaltetF-VNuuH4NATAHx6qSsxFkbZ5fSPSG-CM/export?format=xlsx' },
     { id: 'sheet2', name: 'Sheet 2 (Samastipur, Tirhut, Mithilanchal)', url: 'https://docs.google.com/spreadsheets/d/1ebxTaRpQOgCNWm2mpwk4qSviNiM4c_HAZX-xuiumlYA/export?format=xlsx' },
-    { id: 'sheet3', name: 'Sheet 3 (Munger, Magadh, Nalanda)', url: 'https://docs.google.com/spreadsheets/d/1LEMvWv8B0j6zP7ZmkKSn1zDg1M02XclSlQbwPIOmnvs/export?format=xlsx' }
+    { id: 'sheet3', name: 'Sheet 3 (Munger, Magadh, Nalanda)', url: 'https://docs.google.com/spreadsheets/d/1LEMvWv8B0j6zP7ZmkKSn1zDg1M02XclSlQbwPIOmnvs/export?format=xlsx' },
+    { id: 'sheet4', name: 'Sheet 4 (Seemanchal, Kosi, Patna)', url: 'https://docs.google.com/spreadsheets/d/1Q8Ok1ufguWf4_s1ZmAXi7efEsQ3vPkOB4o4kt5yWjjM/export?format=xlsx' }
 ];
 
 let candidatesData = [];
@@ -480,7 +481,7 @@ function initMultiSelectFilters() {
  * CLIENT-SIDE INSTANT CACHE (IndexedDB + JSON Fallback)
  * =========================================================
  */
-const APP_DATA_VERSION = 'v5.1_20260918';
+const APP_DATA_VERSION = 'v5.2_20261001';
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes: fast instant boot, silent background revalidation if older
 const DB_NAME = 'ZP_DASHBOARD_DB';
 const DB_VERSION = 2; // Incremented from 1 to 2 to invalidate stale schemas
@@ -903,13 +904,16 @@ async function loadData(forceReload = false) {
 
         let liveSuccessCount = 0;
         const fetchPromises = GOOGLE_SHEET_URLS.map(async (sheet) => {
+            console.log(`[Sync] Downloading ${sheet.name}...`);
             const liveUrl = `${sheet.url}&_nocache=${Date.now()}`;
             const resp = await fetch(liveUrl, { cache: 'no-store' });
             if (!resp.ok) throw new Error(`HTTP ${resp.status} on ${sheet.name}`);
             const arrayBuffer = await resp.arrayBuffer();
+            console.log(`[Sync] Parsing ${sheet.name} (${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB)...`);
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             parseWorkbook(workbook, sheet.name);
             liveSuccessCount++;
+            console.log(`[Sync] Completed ${sheet.name} (Current candidates: ${candidatesData.length})`);
         });
 
         await Promise.allSettled(fetchPromises);
@@ -4728,15 +4732,23 @@ function getSheetNameForRow(row) {
     if (zone.includes('samastipur') || zone.includes('tirhut') || zone.includes('mithil') || zone.includes('darbhanga')) {
         return 'Sheet 2 (Samastipur, Tirhut, Mithilanchal)';
     }
-    if (['samastipur', 'muzaffarpur', 'vaishali', 'sitamarhi', 'sheohar', 'darbhanga', 'madhubani', 'jhanjharpur'].includes(dist)) {
+    if (['samastipur', 'rosera', 'muzaffarpur', 'vaishali', 'sitamarhi', 'sheohar', 'darbhanga', 'madhubani', 'jhanjharpur', 'begusarai'].includes(dist)) {
         return 'Sheet 2 (Samastipur, Tirhut, Mithilanchal)';
     }
 
+    // Sheet 4: Seemanchal, Kosi, Patna
+    if (zone.includes('seemanchal') || zone.includes('kosi') || zone.includes('koshi') || zone.includes('patna')) {
+        return 'Sheet 4 (Seemanchal, Kosi, Patna)';
+    }
+    if (['araria', 'kishanganj', 'purnia', 'purnea', 'katihar', 'patna', 'patna gramin', 'patna barh', 'barh', 'supaul', 'saharsa', 'madhepura', 'khagaria'].includes(dist)) {
+        return 'Sheet 4 (Seemanchal, Kosi, Patna)';
+    }
+
     // Sheet 3: Munger, Magadh, Nalanda
-    if (zone.includes('munger') || zone.includes('magadh') || zone.includes('nalanda') || zone.includes('patna')) {
+    if (zone.includes('munger') || zone.includes('magadh') || zone.includes('nalanda')) {
         return 'Sheet 3 (Munger, Magadh, Nalanda)';
     }
-    if (['munger', 'begusarai', 'khagaria', 'jamui', 'lakhisarai', 'sheikhpura', 'gaya', 'nawada', 'aurangabad', 'jehanabad', 'arwal', 'nalanda', 'patna', 'naugachhiya', 'bhagalpur', 'banka', 'purnea', 'katihar', 'araria', 'kishanganj', 'saharsa', 'madhepura', 'supaul'].includes(dist)) {
+    if (['munger', 'jamui', 'lakhisarai', 'sheikhpura', 'gaya', 'nawada', 'aurangabad', 'jehanabad', 'arwal', 'nalanda', 'naugachhiya', 'bhagalpur', 'banka'].includes(dist)) {
         return 'Sheet 3 (Munger, Magadh, Nalanda)';
     }
 
@@ -5038,15 +5050,22 @@ function updateAuditDependentFilters(trigger = 'sheet') {
     let currentType = typeSelect ? (typeSelect.value || '').trim() : '';
 
     // 1. Update Sheet options with live error counts
-    const sheetCounts = { 'Sheet 1': 0, 'Sheet 2': 0, 'Sheet 3': 0 };
+    const sheetCounts = { 'Sheet 1': 0, 'Sheet 2': 0, 'Sheet 3': 0, 'Sheet 4': 0 };
     cachedAuditDiscrepancies.forEach(d => {
         if (d.sheet.includes('Sheet 1')) sheetCounts['Sheet 1']++;
         else if (d.sheet.includes('Sheet 2')) sheetCounts['Sheet 2']++;
         else if (d.sheet.includes('Sheet 3')) sheetCounts['Sheet 3']++;
+        else if (d.sheet.includes('Sheet 4')) sheetCounts['Sheet 4']++;
     });
 
     const sheetOpts = sheetSelect.options;
-    if (sheetOpts.length >= 4) {
+    if (sheetOpts.length >= 5) {
+        sheetOpts[0].text = `All Sheets (${cachedAuditDiscrepancies.length} Total Errors)`;
+        sheetOpts[1].text = `Sheet 1 (Champaran, Saran, Sahabad) [${sheetCounts['Sheet 1']} errors]`;
+        sheetOpts[2].text = `Sheet 2 (Samastipur, Tirhut, Mithilanchal) [${sheetCounts['Sheet 2']} errors]`;
+        sheetOpts[3].text = `Sheet 3 (Munger, Magadh, Nalanda) [${sheetCounts['Sheet 3']} errors]`;
+        sheetOpts[4].text = `Sheet 4 (Seemanchal, Kosi, Patna) [${sheetCounts['Sheet 4']} errors]`;
+    } else if (sheetOpts.length >= 4) {
         sheetOpts[0].text = `All Sheets (${cachedAuditDiscrepancies.length} Total Errors)`;
         sheetOpts[1].text = `Sheet 1 (Champaran, Saran, Sahabad) [${sheetCounts['Sheet 1']} errors]`;
         sheetOpts[2].text = `Sheet 2 (Samastipur, Tirhut, Mithilanchal) [${sheetCounts['Sheet 2']} errors]`;
@@ -5203,6 +5222,7 @@ function renderAuditTable() {
         let sheetClass = 'sheet-1';
         if (d.sheet.includes('Sheet 2')) sheetClass = 'sheet-2';
         else if (d.sheet.includes('Sheet 3')) sheetClass = 'sheet-3';
+        else if (d.sheet.includes('Sheet 4')) sheetClass = 'sheet-4';
 
         let sevClass = 'audit-severity-info';
         if (d.severity === 'critical') sevClass = 'audit-severity-critical';

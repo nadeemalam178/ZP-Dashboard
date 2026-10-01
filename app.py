@@ -12,7 +12,8 @@ def load_data():
     urls = [
         'https://docs.google.com/spreadsheets/d/1ZtME2kaltetF-VNuuH4NATAHx6qSsxFkbZ5fSPSG-CM/export?format=xlsx',
         'https://docs.google.com/spreadsheets/d/1ebxTaRpQOgCNWm2mpwk4qSviNiM4c_HAZX-xuiumlYA/export?format=xlsx',
-        'https://docs.google.com/spreadsheets/d/1LEMvWv8B0j6zP7ZmkKSn1zDg1M02XclSlQbwPIOmnvs/export?format=xlsx'
+        'https://docs.google.com/spreadsheets/d/1LEMvWv8B0j6zP7ZmkKSn1zDg1M02XclSlQbwPIOmnvs/export?format=xlsx',
+        'https://docs.google.com/spreadsheets/d/1Q8Ok1ufguWf4_s1ZmAXi7efEsQ3vPkOB4o4kt5yWjjM/export?format=xlsx'
     ]
     
     cand_dfs = []
